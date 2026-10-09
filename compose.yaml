@@ -6,3 +6,17 @@ services:
     volumes:
       - ./backend:/app
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      DATABASE_URL: postgresql://appointments:local_dev_password@db:5432/appointments
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: appointments
+      POSTGRES_PASSWORD: local_dev_password
+      POSTGRES_DB: appointments
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
