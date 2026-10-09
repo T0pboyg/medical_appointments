@@ -7,7 +7,8 @@ app = FastAPI()
 class AppointmentCreate(BaseModel):
     patient_name: str
     starts_at: datetime
-    appointments: list[AppointmentCreate] = []
+
+appointments: list[AppointmentCreate] = []
 
 
 @app.get("/")
