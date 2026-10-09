@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from datetime import datetime
 from pydantic import BaseModel
+from database import get_appointments_from_db
 
 app = FastAPI()
 
@@ -21,13 +22,15 @@ def read_root():
 
 @app.get("/appointments")
 def get_appointments(patient_phone: str | None = None):
-    if patient_phone:
-        unique_appointments = [
-            a for a in appointments
-            if  a["patient_phone"] == patient_phone
-            ]
+    stored_appointments = get_appointments_from_db()
 
-        return unique_appointments
+    if patient_phone:
+        return [
+            appointment for appointment in stored_appointments
+            if appointment["patient_phone"] == patient_phone
+        ]
+
+    return stored_appointments
 
 
 @app.post("/appointments", status_code=201)

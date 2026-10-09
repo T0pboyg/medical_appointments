@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS appointments (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    patient_name TEXT NOT NULL,
+    patient_phone TEXT NOT NULL,
+    starts_at TIMESTAMPTZ NOT NULL
+);
