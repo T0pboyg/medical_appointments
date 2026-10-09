@@ -9,7 +9,7 @@ class AppointmentCreate(BaseModel):
     patient_phone: str
     starts_at: datetime
 
-appointments: list[AppointmentCreate] = []
+appointments: list[dict] = []
 
 counter = 1
 
@@ -24,7 +24,7 @@ def get_appointments(patient_phone: str | None = None):
     if patient_phone:
         unique_appointments = [
             a for a in appointments 
-            if a.patient_phone == patient_phone
+            if  a["patient_phone"] == patient_phone
             ]
 
         return unique_appointments
