@@ -13,7 +13,6 @@ class AppointmentCreate(BaseModel):
     patient_AMKA: str
 
 appointments: list[dict] = []
-counter = 1 
 
 
 @app.get("/")
