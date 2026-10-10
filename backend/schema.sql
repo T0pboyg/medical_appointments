@@ -4,3 +4,6 @@ CREATE TABLE IF NOT EXISTS appointments (
     patient_phone TEXT NOT NULL,
     starts_at TIMESTAMPTZ NOT NULL
 );
+
+ALTER TABLE appointments
+ADD COLUMN IF NOT EXISTS patient_amka TEXT;
