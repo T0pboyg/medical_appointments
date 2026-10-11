@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Διαχείριση Ραντεβού</title>
+
+    <!-- Εισαγωγή γραμματοσειράς Inter από το Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Όνομα γιατρού/κλινικής</h1>
+        </header>
+
+        <main>
+            <!-- Φόρμα δημιουργίας ραντεβού -->
+            <section class="card" aria-labelledby="create-heading">
+                <h2 id="create-heading">Νέο ραντεβού</h2>
+
+                <form id="appointment-form">
+                    <div class="form-group">
+                        <label for="patient-name">Ονοματεπώνυμο </label>
+                        <input
+                            type="text"
+                            id="patient-name" 
+                            name="patient_name"
+                            autocomplete="name"
+                            placeholder="π.χ. Μαρία Παπαδοπούλου"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="patient-phone">Τηλέφωνο</label>
+                        <input
+                            type="tel"
+                            id="patient-phone"
+                            name="patient_phone"
+                            autocomplete="tel"
+                            placeholder="π.χ. 6912345678"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="patient-amka">ΑΜΚΑ</label>
+                        <input
+                            type="text"
+                            id="patient-amka"
+                            name="patient_AMKA"
+                            inputmode="numeric"
+                            pattern="[0-9]{11}"
+                            maxlength="11"
+                            title="Συμπλήρωσε 11 ψηφία"
+                            placeholder="11 ψηφία"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+    <label>Επιλογή Ημέρας & Ώρας</label>
+    
+    <!-- Custom Ημερολόγιο -->
+    <div id="custom-calendar" class="calendar-container">
+        <div class="calendar-header">
+            <button type="button" id="prev-month">&lt;</button>
+            <span id="month-year-display">Οκτώβριος 2026</span>
+            <button type="button" id="next-month">&gt;</button>
+        </div>
+        <div class="calendar-grid" id="calendar-days">
+            <!-- Οι μέρες θα γεμίζουν δυναμικά από τη JavaScript -->
+        </div>
+    </div>
+
+    <!-- Hidden input για να αποθηκεύεται η επιλεγμένη ημερομηνία -->
+    <input type="hidden" id="selected-date" name="selected_date" required>
+
+    <!-- Επιλογή Ώρας (εμφανίζεται αφού επιλεγεί μέρα) -->
+    <div id="time-selection-wrapper" class="time-wrapper" style="display: none;">
+        <label for="time-slot">Διαθέσιμες Ώρες για την επιλεγμένη μέρα:</label>
+        <select id="time-slot" name="time_slot" required>
+            <option value="">-- Επιλέξτε ώρα --</option>
+            <!-- Οι ώρες γεμίζουν δυναμικά -->
+        </select>
+    </div>
+</div>
+
+                    <button type="submit" class="btn-submit">Κλείσε Ραντεβού</button>
+                </form>
+            </section>
+
+            <!-- Μηνύματα επιτυχίας ή σφάλματος -->
+            <p id="message" role="status" aria-live="polite"></p>
+
+
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

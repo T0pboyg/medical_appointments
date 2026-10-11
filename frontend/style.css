@@ -1,0 +1,280 @@
+/* --- Βασικές Ρυθμίσεις & Απόλυτο Κεντράρισμα --- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #f0f4f8;
+    color: #334155;
+    min-height: 100vh;
+    
+    /* Κεντράρισμα όλης της σελίδας σε οριζόντιο και κατακόρυφο άξονα */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 3rem 1.5rem;
+}
+
+/* Κεντρικό container που τα βάζει όλα το ένα κάτω από το άλλο */
+.app-container {
+    width: 100%;
+    max-width: 650px;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Κεντράρισμα περιεχομένων */
+    gap: 2.5rem; /* Ωραίο και μεγάλο κενό ανάμεσα στα τμήματα */
+}
+
+/* --- Header --- */
+header {
+    text-align: center;
+    width: 100%;
+}
+
+header h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: -0.5px;
+}
+
+/* --- Κύριος κορμός (Main) --- */
+main {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2.5rem;
+}
+
+/* --- Μοντέρνες Κάρτες (Boxes) --- */
+.card {
+    background: #ffffff;
+    padding: 2.5rem;
+    border-radius: 20px;
+    box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+    width: 100%;
+}
+
+.card h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 1.8rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #f1f5f9;
+    text-align: center;
+}
+
+/* --- Φόρμα & Πεδία --- */
+#appointment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem; /* Μεγάλο και άνετο κενό ανάμεσα στα πεδία */
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 0.9rem 1.1rem;
+    font-size: 1rem;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    background-color: #f8fafc;
+    color: #0f172a;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    background-color: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+/* --- Κουμπί Υποβολής --- */
+.btn-submit {
+    margin-top: 1rem;
+    padding: 1rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #ffffff;
+    background-color: #2563eb;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.btn-submit:hover {
+    background-color: #1d4ed8;
+}
+
+.btn-submit:active {
+    transform: scale(0.98);
+}
+
+/* --- Διαδραστικό Μήνυμα (Επιτυχίας / Σφάλματος) --- */
+#message {
+    width: 100%;
+    text-align: center;
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 1rem;
+    border-radius: 10px;
+    transition: opacity 0.5s ease;
+}
+
+#message.success {
+    background-color: #dcfce7;
+    color: #16a34a;
+    border: 1px solid #bbf7d0;
+}
+
+#message.error {
+    background-color: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+/* --- Πίνακας Ραντεβού --- */
+.table-wrapper {
+    overflow-x: auto;
+    width: 100%;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
+}
+
+th, td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+th {
+    background-color: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+}
+
+tr:hover td {
+    background-color: #f8fafc;
+}
+
+
+/* --- Custom Calendar Design --- */
+.calendar-container {
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 1rem;
+    width: 100%;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 1rem;
+}
+
+.calendar-header button {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    font-weight: bold;
+    color: #475569;
+    transition: background 0.2s;
+}
+
+.calendar-header button:hover {
+    background: #e2e8f0;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    text-align: center;
+}
+
+/* Στυλ για κάθε μέρα στο ημερολόγιο */
+.calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Μέρες χωρίς διαθεσιμότητα (πιο σκούρες / ανενεργές) */
+.calendar-day.disabled {
+    background-color: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Μέρες με διαθεσιμότητα (ανοιχτό, φωτεινό χρώμα) */
+.calendar-day.available {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.calendar-day.available:hover {
+    background-color: #bfdbfe;
+    transform: scale(1.05);
+}
+
+/* Επιλεγμένη μέρα */
+.calendar-day.selected {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    font-weight: 700;
+}
+
+/* Wrapper για τις ώρες */
+.time-wrapper {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
