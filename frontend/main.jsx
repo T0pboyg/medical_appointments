@@ -5,6 +5,8 @@ function App() {
     const [calendarMonth, setCalendarMonth] = useState(
         () => new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     );
+    const [selectedDate, setSelectedDate] = useState(null);
+    const [selectedTime, setSelectedTime] = useState("");
 
     const monthTitle = calendarMonth.toLocaleDateString("el-GR", {
         month: "long",
@@ -12,14 +14,34 @@ function App() {
     });
 
     function changeMonth(offset) {
-        setCalendarMonth((currentMonth) =>
-            new Date(
-                currentMonth.getFullYear(),
-                currentMonth.getMonth() + offset,
-                1
-            )
+        setCalendarMonth(
+            (currentMonth) =>
+                new Date(
+                    currentMonth.getFullYear(),
+                    currentMonth.getMonth() + offset,
+                    1
+                )
         );
     }
+
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayOffset = (new Date(year, month, 1).getDay() + 6) % 7;
+
+    const calendarCells = [
+        ...Array(firstDayOffset).fill(null),
+        ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+    ];
+
+    const timeSlots = Array.from({ length: 16 }, (_, index) => {
+        const totalMinutes = 9 * 60 + index * 30;
+        const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+        const minutes = String(totalMinutes % 60).padStart(2, "0");
+
+        return `${hours}:${minutes}`;
+    });
+
     return (
         <div className="app-container">
             <header>
@@ -54,6 +76,7 @@ function App() {
                                 required
                             />
                         </div>
+
                         <div className="form-group">
                             <label htmlFor="patient-amka">ΑΜΚΑ</label>
                             <input
@@ -68,6 +91,7 @@ function App() {
                                 required
                             />
                         </div>
+
                         <div className="form-group">
                             <p>Επιλογή Ημέρας &amp; Ώρας</p>
 
@@ -94,8 +118,74 @@ function App() {
                                     </button>
                                 </div>
 
-                                <div className="calendar-grid" id="calendar-days"></div>
+                                <div className="calendar-grid" id="calendar-days">
+                                    {["Δε", "Τρ", "Τε", "Πε", "Πα", "Σα", "Κυ"].map((label) => (
+                                        <span key={label}>{label}</span>
+                                    ))}
+
+                                    {calendarCells.map((day, index) => {
+                                        if (day === null) {
+                                            return <span key={`empty-${index}`} />;
+                                        }
+
+                                        const weekday = new Date(year, month, day).getDay();
+                                        const isWeekend = weekday === 0 || weekday === 6;
+
+                                        const dateValue = [
+                                            year,
+                                            String(month + 1).padStart(2, "0"),
+                                            String(day).padStart(2, "0"),
+                                        ].join("-");
+
+                                        const isSelected = selectedDate === dateValue;
+
+                                        return (
+                                            <button
+                                                key={day}
+                                                type="button"
+                                                className={`calendar-day ${isWeekend
+                                                        ? "disabled"
+                                                        : isSelected
+                                                            ? "selected"
+                                                            : "available"
+                                                    }`}
+                                                onClick={() => {
+                                                    setSelectedDate(dateValue);
+                                                    setSelectedTime("");
+                                                }}
+                                                aria-pressed={isSelected}
+                                                disabled={isWeekend}
+                                                aria-label={`${day} ${monthTitle}`}
+                                            >
+                                                {day}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
+
+                            {selectedDate && (
+                                <div className="time-wrapper">
+                                    <label htmlFor="time-slot">Ώρα ραντεβού</label>
+                                    <select
+                                        id="time-slot"
+                                        name="time_slot"
+                                        required
+                                        value={selectedTime}
+                                        onChange={(event) => setSelectedTime(event.target.value)}
+                                    >
+                                        <option value="" disabled>
+                                            Επιλέξτε ώρα
+                                        </option>
+
+                                        {timeSlots.map((time) => (
+                                            <option key={time} value={time}>
+                                                {time}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div>
                     </form>
                 </section>
