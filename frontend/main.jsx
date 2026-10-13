@@ -7,6 +7,8 @@ function App() {
     );
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedTime, setSelectedTime] = useState("");
+    const [message, setMessage] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const monthTitle = calendarMonth.toLocaleDateString("el-GR", {
         month: "long",
@@ -42,6 +44,64 @@ function App() {
         return `${hours}:${minutes}`;
     });
 
+    async function handleSubmit(event) {
+        event.preventDefault();
+
+        if (isSubmitting) {
+            return;
+        }
+
+        if (!selectedDate || !selectedTime) {
+            setMessage("Επίλεξε ημέρα και ώρα για το ραντεβού.");
+            return;
+        }
+
+        const formData = new FormData(event.currentTarget);
+
+        const appointmentData = {
+            patient_name: formData.get("patient_name"),
+            patient_phone: formData.get("patient_phone"),
+            patient_AMKA: formData.get("patient_AMKA"),
+            starts_at: new Date(`${selectedDate}T${selectedTime}:00`).toISOString(),
+        };
+
+        setMessage("Αποθήκευση ραντεβού…");
+
+        setIsSubmitting(true);
+
+        try {
+            const response = await fetch("/api/appointments", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(appointmentData),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+
+                setMessage(
+                    typeof errorData.detail === "string"
+                        ? errorData.detail
+                        : "Η κράτηση απέτυχε. Έλεγξε τα στοιχεία του ραντεβού."
+                );
+                return;
+            }
+
+            const createdAppointment = await response.json();
+
+            setMessage(
+                `Το ραντεβού αποθηκεύτηκε με αριθμό ${createdAppointment.id}.`
+            );
+        } catch {
+            setMessage("Δεν ήταν δυνατή η επικοινωνία με τον server.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+
     return (
         <div className="app-container">
             <header>
@@ -52,7 +112,7 @@ function App() {
                 <section className="card" aria-labelledby="create-heading">
                     <h2 id="create-heading">Νέο ραντεβού</h2>
 
-                    <form id="appointment-form">
+                    <form id="appointment-form" onSubmit={handleSubmit}>
                         <div className="form-group">
                             <label htmlFor="patient-name">Ονοματεπώνυμο</label>
                             <input
@@ -144,14 +204,15 @@ function App() {
                                                 key={day}
                                                 type="button"
                                                 className={`calendar-day ${isWeekend
-                                                        ? "disabled"
-                                                        : isSelected
-                                                            ? "selected"
-                                                            : "available"
+                                                    ? "disabled"
+                                                    : isSelected
+                                                        ? "selected"
+                                                        : "available"
                                                     }`}
                                                 onClick={() => {
                                                     setSelectedDate(dateValue);
                                                     setSelectedTime("");
+                                                    setMessage("");
                                                 }}
                                                 aria-pressed={isSelected}
                                                 disabled={isWeekend}
@@ -170,9 +231,11 @@ function App() {
                                     <select
                                         id="time-slot"
                                         name="time_slot"
-                                        required
                                         value={selectedTime}
-                                        onChange={(event) => setSelectedTime(event.target.value)}
+                                        onChange={(event) => {
+                                            setSelectedTime(event.target.value);
+                                            setMessage("");
+                                        }}
                                     >
                                         <option value="" disabled>
                                             Επιλέξτε ώρα
@@ -187,7 +250,19 @@ function App() {
                                 </div>
                             )}
                         </div>
+
+                        <button
+                            type="submit"
+                            className="btn-submit"
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? "Αποθήκευση…" : "Κλείσε Ραντεβού"}
+                        </button>
                     </form>
+
+                    <p id="message" role="status" aria-live="polite">
+                        {message}
+                    </p>
                 </section>
             </main>
         </div>
