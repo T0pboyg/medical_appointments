@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 
 function App() {
@@ -9,6 +9,26 @@ function App() {
     const [selectedTime, setSelectedTime] = useState("");
     const [message, setMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const [appointments, setAppointments] = useState([]);
+
+    useEffect(() => {
+        async function fetchAppointments() {
+            try {
+                const response = await fetch("/api/appointments");
+                if (response.ok) {
+                    const data = await response.json();
+                    setAppointments(data);
+                }
+            } catch (error) {
+                console.error("Αποτυχία φόρτωσης ραντεβού:", error);
+            }
+        }
+        fetchAppointments();
+    }, []);
+
+
+
 
     const monthTitle = calendarMonth.toLocaleDateString("el-GR", {
         month: "long",
@@ -43,6 +63,22 @@ function App() {
 
         return `${hours}:${minutes}`;
     });
+
+
+    // Υπολογισμός ποιες ώρες είναι ήδη κλεισμένες για την επιλεγμένη ημερομηνία
+    const bookedTimesForSelectedDate = appointments
+        .filter((app) => {
+            if (!selectedDate) return false;
+            const appDate = new Date(app.starts_at).toISOString().split("T")[0];
+            return appDate === selectedDate;
+        })
+        .map((app) => {
+            const appTime = new Date(app.starts_at);
+            const hours = String(appTime.getHours()).padStart(2, "0");
+            const minutes = String(appTime.getMinutes()).padStart(2, "0");
+            return `${hours}:${minutes}`;
+        });
+
 
     async function handleSubmit(event) {
         event.preventDefault();
@@ -91,9 +127,16 @@ function App() {
 
             const createdAppointment = await response.json();
 
-            setMessage(
-                `Το ραντεβού αποθηκεύτηκε με αριθμό ${createdAppointment.id}.`
-            );
+            // Προσθήκη του νέου ραντεβού στη λίστα τοπικά ώστε να κλειδώνει η ώρα αμέσως
+            setAppointments((prev) => [...prev, createdAppointment]);
+            setSelectedTime("");
+            setSelectedDate(null);            
+            event.target.reset();
+            
+            setMessage ("Το ραντεβού κλείστηκε επιτυχώς");
+            return;
+
+
         } catch {
             setMessage("Δεν ήταν δυνατή η επικοινωνία με τον server.");
         } finally {
