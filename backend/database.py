@@ -45,3 +45,18 @@ def get_appointments_from_db():
                 """
             )
             return cursor.fetchall()
+
+def delete_appointment_from_db(appointment_id):
+    database_url = os.environ["DATABASE_URL"]
+
+    with psycopg.connect(database_url) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM appointments
+                WHERE id = %s
+                RETURNING id;
+                """,
+                (appointment_id,),
+            )
+            return cursor.fetchone() is not None

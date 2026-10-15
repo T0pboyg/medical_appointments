@@ -9,13 +9,14 @@ function App() {
     const [selectedTime, setSelectedTime] = useState("");
     const [message, setMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
-
+    const [searchAmka, setSearchAmka] = useState("");
     const [appointments, setAppointments] = useState([]);
 
     useEffect(() => {
         async function fetchAppointments() {
             try {
                 const response = await fetch("/api/appointments");
+
                 if (response.ok) {
                     const data = await response.json();
                     setAppointments(data);
@@ -24,11 +25,9 @@ function App() {
                 console.error("Αποτυχία φόρτωσης ραντεβού:", error);
             }
         }
+
         fetchAppointments();
     }, []);
-
-
-
 
     const monthTitle = calendarMonth.toLocaleDateString("el-GR", {
         month: "long",
@@ -64,21 +63,29 @@ function App() {
         return `${hours}:${minutes}`;
     });
 
-
-    // Υπολογισμός ποιες ώρες είναι ήδη κλεισμένες για την επιλεγμένη ημερομηνία
     const bookedTimesForSelectedDate = appointments
-        .filter((app) => {
-            if (!selectedDate) return false;
-            const appDate = new Date(app.starts_at).toISOString().split("T")[0];
-            return appDate === selectedDate;
+        .filter((appointment) => {
+            if (!selectedDate) {
+                return false;
+            }
+
+            const appointmentDate = new Date(appointment.starts_at);
+
+            const dateValue = [
+                appointmentDate.getFullYear(),
+                String(appointmentDate.getMonth() + 1).padStart(2, "0"),
+                String(appointmentDate.getDate()).padStart(2, "0"),
+            ].join("-");
+
+            return dateValue === selectedDate;
         })
-        .map((app) => {
-            const appTime = new Date(app.starts_at);
-            const hours = String(appTime.getHours()).padStart(2, "0");
-            const minutes = String(appTime.getMinutes()).padStart(2, "0");
+        .map((appointment) => {
+            const appointmentDate = new Date(appointment.starts_at);
+            const hours = String(appointmentDate.getHours()).padStart(2, "0");
+            const minutes = String(appointmentDate.getMinutes()).padStart(2, "0");
+
             return `${hours}:${minutes}`;
         });
-
 
     async function handleSubmit(event) {
         event.preventDefault();
@@ -92,7 +99,8 @@ function App() {
             return;
         }
 
-        const formData = new FormData(event.currentTarget);
+        const form = event.currentTarget;
+        const formData = new FormData(form);
 
         const appointmentData = {
             patient_name: formData.get("patient_name"),
@@ -102,7 +110,6 @@ function App() {
         };
 
         setMessage("Αποθήκευση ραντεβού…");
-
         setIsSubmitting(true);
 
         try {
@@ -127,16 +134,12 @@ function App() {
 
             const createdAppointment = await response.json();
 
-            // Προσθήκη του νέου ραντεβού στη λίστα τοπικά ώστε να κλειδώνει η ώρα αμέσως
-            setAppointments((prev) => [...prev, createdAppointment]);
+            setAppointments((previous) => [...previous, createdAppointment]);
             setSelectedTime("");
-            setSelectedDate(null);            
-            event.target.reset();
-            
-            setMessage ("Το ραντεβού κλείστηκε επιτυχώς");
-            return;
+            setSelectedDate(null);
+            form.reset();
 
-
+            setMessage("Το ραντεβού κλείστηκε επιτυχώς.");
         } catch {
             setMessage("Δεν ήταν δυνατή η επικοινωνία με τον server.");
         } finally {
@@ -144,6 +147,39 @@ function App() {
         }
     }
 
+    const filteredAppointments = appointments.filter(
+        (appointment) =>
+            searchAmka === "" || appointment.patient_AMKA === searchAmka
+    );
+
+    async function handleDelete(appointmentId) {
+        const confirmed = window.confirm(
+            "Θέλεις σίγουρα να διαγράψεις αυτό το ραντεβού;"
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/appointments/${appointmentId}`, {
+                method: "DELETE",
+            });
+
+            if (!response.ok) {
+                setMessage("Η διαγραφή απέτυχε. Δοκίμασε ανανέωση της σελίδας.");
+                return;
+            }
+
+            setAppointments((previous) =>
+                previous.filter((appointment) => appointment.id !== appointmentId)
+            );
+
+            setMessage("Το ραντεβού διαγράφηκε.");
+        } catch {
+            setMessage("Δεν ήταν δυνατή η επικοινωνία με τον server.");
+        }
+    }
 
     return (
         <div className="app-container">
@@ -284,11 +320,15 @@ function App() {
                                             Επιλέξτε ώρα
                                         </option>
 
-                                        {timeSlots.map((time) => (
-                                            <option key={time} value={time}>
-                                                {time}
-                                            </option>
-                                        ))}
+                                        {timeSlots
+                                            .filter(
+                                                (time) => !bookedTimesForSelectedDate.includes(time)
+                                            )
+                                            .map((time) => (
+                                                <option key={time} value={time}>
+                                                    {time}
+                                                </option>
+                                            ))}
                                     </select>
                                 </div>
                             )}
@@ -306,6 +346,48 @@ function App() {
                     <p id="message" role="status" aria-live="polite">
                         {message}
                     </p>
+                </section>
+
+                <section className="card" aria-labelledby="appointments-heading">
+                    <h2 id="appointments-heading">Ραντεβού</h2>
+
+                    <div className="form-group">
+                        <label htmlFor="search-amka">Αναζήτηση με AMKA</label>
+                        <input
+                            id="search-amka"
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={11}
+                            placeholder="Πληκτρολόγησε AMKA 11 ψηφίων"
+                            value={searchAmka}
+                            onChange={(event) => setSearchAmka(event.target.value)}
+                        />
+                    </div>
+
+                    {filteredAppointments.length === 0 ? (
+                        <p>Δεν βρέθηκαν ραντεβού.</p>
+                    ) : (
+                        <ul>
+                            {filteredAppointments.map((appointment) => (
+                                <li key={appointment.id}>
+                                    {appointment.patient_name}
+                                    {" — "}
+                                    {new Date(appointment.starts_at).toLocaleString("el-GR", {
+                                        timeZone: "Europe/Athens",
+                                        dateStyle: "short",
+                                        timeStyle: "short",
+                                    })}
+                                    {" "}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDelete(appointment.id)}
+                                    >
+                                        Διαγραφή
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </section>
             </main>
         </div>

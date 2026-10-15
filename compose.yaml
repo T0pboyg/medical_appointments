@@ -27,7 +27,7 @@ services:
       POSTGRES_DB: appointments
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
 
 volumes:
   postgres_data:

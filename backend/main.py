@@ -3,6 +3,10 @@ from datetime import datetime
 from pydantic import BaseModel
 from fastapi import HTTPException
 from database import get_appointments_from_db,create_appointment_in_db
+from zoneinfo import ZoneInfo
+from psycopg.errors import UniqueViolation
+from fastapi import Response
+from database import delete_appointment_from_db
 
 app = FastAPI()
 
@@ -35,29 +39,71 @@ def get_appointments(patient_AMKA: str | None = None):
 
 @app.post("/appointments", status_code=201)
 def create_appointment(appointment: AppointmentCreate):
-    stored_appointments = get_appointments_from_db()
+    if not 9 <= local_start.hour < 17:
+        raise HTTPException(
+            status_code=400,
+            detail="Το ωράριο ραντεβού είναι 09:00–17:00."
+        )
 
-    for existing in stored_appointments:
-        if existing["starts_at"] == appointment.starts_at:
-            raise HTTPException(
-                status_code=400,
-                detail="Appointment already exists at this time."
-            )
+    if (
+        local_start.minute not in (0, 30)
+        or local_start.second != 0
+        or local_start.microsecond != 0
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Οι ώρες έναρξης πρέπει να είναι ανά 30 λεπτά."
+        )
+    if appointment.starts_at.utcoffset() is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Η ημερομηνία πρέπει να περιλαμβάνει ζώνη ώρας."
+        )
 
-    return create_appointment_in_db(
-        appointment.patient_name,
-        appointment.patient_phone,
-        appointment.patient_AMKA,
-        appointment.starts_at,
+        local_start = appointment.starts_at.astimezone(
+        ZoneInfo("Europe/Athens")
     )
 
+    if local_start <= datetime.now(ZoneInfo("Europe/Athens")):
+        raise HTTPException(
+            status_code=400,
+            detail="Το ραντεβού πρέπει να είναι σε μελλοντική ημερομηνία και ώρα."
+        )
 
-@app.delete("/appointments/{appointment_id}", status_code= 204)
+    if local_start.weekday() >= 5:
+        raise HTTPException(
+            status_code=400,
+            detail="Δεν επιτρέπονται ραντεβού το Σαββατοκύριακο."
+        )
+
+    if local_start.weekday() >= 5:
+        raise HTTPException(
+            status_code=400,
+            detail="Δεν επιτρέπονται ραντεβού το Σαββατοκύριακο."
+        )
+    try:
+        return create_appointment_in_db(
+            appointment.patient_name,
+            appointment.patient_phone,
+            appointment.patient_AMKA,
+            appointment.starts_at,
+        )
+    except UniqueViolation:
+        raise HTTPException(
+            status_code=409,
+            detail="Η συγκεκριμένη ώρα έχει ήδη κρατηθεί."
+        ) from None
+
+
+
+@app.delete("/appointments/{appointment_id}", status_code=204)
 def delete_appointment(appointment_id: int):
-    global appointments
-    appointments = [
-        a for a in appointments 
-        if a["id"] != appointment_id
-    ]
+    deleted = delete_appointment_from_db(appointment_id)
 
-    return {"message": f"Appointment with id {appointment_id} deleted successfully."}
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Το ραντεβού δεν βρέθηκε."
+        )
+
+    return Response(status_code=204)
