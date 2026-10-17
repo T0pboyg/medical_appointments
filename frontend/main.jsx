@@ -9,24 +9,55 @@ function App() {
     const [selectedTime, setSelectedTime] = useState("");
     const [message, setMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [appointments, setAppointments] = useState([]);
+    const [serverTimeSlots, setServerTimeSlots] = useState([]);
+    const [isLoadingTimes, setIsLoadingTimes] = useState(false);
+    const [availabilityError, setAvailabilityError] = useState("");
 
     useEffect(() => {
-        async function fetchAppointments() {
-            try {
-                const response = await fetch("/api/appointments");
+        setServerTimeSlots([]);
+        setAvailabilityError("");
 
-                if (response.ok) {
-                    const data = await response.json();
-                    setAppointments(data);
+        if (!selectedDate) {
+            setIsLoadingTimes(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        setIsLoadingTimes(true);
+
+        async function fetchAvailability() {
+            try {
+                const response = await fetch(
+                    `/api/availability?date=${selectedDate}`,
+                    { signal: controller.signal }
+                );
+
+                if (!response.ok) {
+                    throw new Error("Availability request failed");
+                }
+
+                const times = await response.json();
+
+                if (!controller.signal.aborted) {
+                    setServerTimeSlots(times);
                 }
             } catch (error) {
-                console.error("Αποτυχία φόρτωσης ραντεβού:", error);
+                if (!controller.signal.aborted) {
+                    setAvailabilityError(
+                        "Δεν ήταν δυνατή η φόρτωση διαθέσιμων ωρών."
+                    );
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoadingTimes(false);
+                }
             }
         }
 
-        fetchAppointments();
-    }, []);
+        fetchAvailability();
+
+        return () => controller.abort();
+    }, [selectedDate]);
 
     const monthTitle = calendarMonth.toLocaleDateString("el-GR", {
         month: "long",
@@ -54,37 +85,7 @@ function App() {
         ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
     ];
 
-    const timeSlots = Array.from({ length: 16 }, (_, index) => {
-        const totalMinutes = 9 * 60 + index * 30;
-        const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
-        const minutes = String(totalMinutes % 60).padStart(2, "0");
-
-        return `${hours}:${minutes}`;
-    });
-
-    const bookedTimesForSelectedDate = appointments
-        .filter((appointment) => {
-            if (!selectedDate) {
-                return false;
-            }
-
-            const appointmentDate = new Date(appointment.starts_at);
-
-            const dateValue = [
-                appointmentDate.getFullYear(),
-                String(appointmentDate.getMonth() + 1).padStart(2, "0"),
-                String(appointmentDate.getDate()).padStart(2, "0"),
-            ].join("-");
-
-            return dateValue === selectedDate;
-        })
-        .map((appointment) => {
-            const appointmentDate = new Date(appointment.starts_at);
-            const hours = String(appointmentDate.getHours()).padStart(2, "0");
-            const minutes = String(appointmentDate.getMinutes()).padStart(2, "0");
-
-            return `${hours}:${minutes}`;
-        });
+    const availableTimeSlots = serverTimeSlots;
 
     async function handleSubmit(event) {
         event.preventDefault();
@@ -98,7 +99,10 @@ function App() {
             return;
         }
 
-        const selectedDateTime = new Date(`${selectedDate}T${selectedTime}:00`);
+        const selectedDateTime = new Date(
+            `${selectedDate}T${selectedTime}:00`
+        );
+
         if (selectedDateTime <= new Date()) {
             setMessage("Η ώρα που επέλεξες έχει περάσει. Επίλεξε επόμενη ώρα.");
             setSelectedTime("");
@@ -112,7 +116,7 @@ function App() {
             patient_name: formData.get("patient_name"),
             patient_phone: formData.get("patient_phone"),
             patient_AMKA: formData.get("patient_AMKA"),
-            starts_at: new Date(`${selectedDate}T${selectedTime}:00`).toISOString(),
+            starts_at: selectedDateTime.toISOString(),
         };
 
         setMessage("Αποθήκευση ραντεβού…");
@@ -138,13 +142,9 @@ function App() {
                 return;
             }
 
-            const createdAppointment = await response.json();
-
-            setAppointments((previous) => [...previous, createdAppointment]);
             setSelectedTime("");
             setSelectedDate(null);
             form.reset();
-
             setMessage("Το ραντεβού κλείστηκε επιτυχώς.");
         } catch {
             setMessage("Δεν ήταν δυνατή η επικοινωνία με τον server.");
@@ -242,8 +242,10 @@ function App() {
                                         const cellDate = new Date(year, month, day);
                                         const weekday = cellDate.getDay();
                                         const isWeekend = weekday === 0 || weekday === 6;
+
                                         const today = new Date();
                                         today.setHours(0, 0, 0, 0);
+
                                         const isPastDay = cellDate < today;
                                         const isDisabled = isWeekend || isPastDay;
 
@@ -260,10 +262,10 @@ function App() {
                                                 key={day}
                                                 type="button"
                                                 className={`calendar-day ${isDisabled
-                                                    ? "disabled"
-                                                    : isSelected
-                                                        ? "selected"
-                                                        : "available"
+                                                        ? "disabled"
+                                                        : isSelected
+                                                            ? "selected"
+                                                            : "available"
                                                     }`}
                                                 onClick={() => {
                                                     setSelectedDate(dateValue);
@@ -284,10 +286,16 @@ function App() {
                             {selectedDate && (
                                 <div className="time-wrapper">
                                     <label htmlFor="time-slot">Ώρα ραντεβού</label>
+
                                     <select
                                         id="time-slot"
                                         name="time_slot"
                                         value={selectedTime}
+                                        disabled={
+                                            isLoadingTimes ||
+                                            Boolean(availabilityError) ||
+                                            availableTimeSlots.length === 0
+                                        }
                                         onChange={(event) => {
                                             setSelectedTime(event.target.value);
                                             setMessage("");
@@ -297,18 +305,28 @@ function App() {
                                             Επιλέξτε ώρα
                                         </option>
 
-                                        {timeSlots
-                                            .filter((time) => {
-                                                const slotDate = new Date(`${selectedDate}T${time}:00`);
-                                                return slotDate > new Date() &&
-                                                    !bookedTimesForSelectedDate.includes(time);
-                                            })
-                                            .map((time) => (
-                                                <option key={time} value={time}>
-                                                    {time}
-                                                </option>
-                                            ))}
+                                        {availableTimeSlots.map((time) => (
+                                            <option key={time} value={time}>
+                                                {time}
+                                            </option>
+                                        ))}
                                     </select>
+
+                                    {isLoadingTimes && (
+                                        <p role="status">Φόρτωση διαθέσιμων ωρών…</p>
+                                    )}
+
+                                    {availabilityError && (
+                                        <p role="status">{availabilityError}</p>
+                                    )}
+
+                                    {!isLoadingTimes &&
+                                        !availabilityError &&
+                                        availableTimeSlots.length === 0 && (
+                                            <p role="status">
+                                                Δεν υπάρχουν διαθέσιμες ώρες για αυτή την ημέρα.
+                                            </p>
+                                        )}
                                 </div>
                             )}
                         </div>
@@ -326,8 +344,6 @@ function App() {
                         {message}
                     </p>
                 </section>
-
-
             </main>
         </div>
     );

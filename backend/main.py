@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 from pydantic import BaseModel
 from fastapi import HTTPException
 from database import get_appointments_from_db,create_appointment_in_db
@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from psycopg.errors import UniqueViolation
 from fastapi import Response
 from database import delete_appointment_from_db
+from database import get_booked_times_for_date
 
 app = FastAPI()
 
@@ -73,12 +74,6 @@ def create_appointment(appointment: AppointmentCreate):
             status_code=400,
             detail="Δεν επιτρέπονται ραντεβού το Σαββατοκύριακο."
         )
-
-    if local_start.weekday() >= 5:
-        raise HTTPException(
-            status_code=400,
-            detail="Δεν επιτρέπονται ραντεβού το Σαββατοκύριακο."
-        )
     try:
         return create_appointment_in_db(
             appointment.patient_name,
@@ -105,3 +100,25 @@ def delete_appointment(appointment_id: int):
         )
 
     return Response(status_code=204)
+
+@app.get("/availability")
+def get_availability(date: date):
+    clinic_timezone = ZoneInfo("Europe/Athens")
+    now = datetime.now(clinic_timezone)
+
+    if date < now.date() or date.weekday() >= 5:
+        return []
+
+    booked_times = get_booked_times_for_date(date)
+    opening = datetime.combine(date, time(9, 0), tzinfo=clinic_timezone)
+
+    available_times = []
+
+    for index in range(16):
+        slot = opening + timedelta(minutes=index * 30)
+        slot_label = slot.strftime("%H:%M")
+
+        if slot > now and slot_label not in booked_times:
+            available_times.append(slot_label)
+
+    return available_times

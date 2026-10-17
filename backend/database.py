@@ -60,3 +60,19 @@ def delete_appointment_from_db(appointment_id):
                 (appointment_id,),
             )
             return cursor.fetchone() is not None
+
+def get_booked_times_for_date(appointment_date):
+    database_url = os.environ["DATABASE_URL"]
+
+    with psycopg.connect(database_url) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT starts_at AT TIME ZONE 'Europe/Athens'
+                FROM appointments
+                WHERE (starts_at AT TIME ZONE 'Europe/Athens')::date = %s
+                ORDER BY starts_at;
+                """,
+                (appointment_date,),
+            )
+            return [row[0].strftime("%H:%M") for row in cursor.fetchall()]
