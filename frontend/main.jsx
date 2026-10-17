@@ -9,7 +9,6 @@ function App() {
     const [selectedTime, setSelectedTime] = useState("");
     const [message, setMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [searchAmka, setSearchAmka] = useState("");
     const [appointments, setAppointments] = useState([]);
 
     useEffect(() => {
@@ -99,6 +98,13 @@ function App() {
             return;
         }
 
+        const selectedDateTime = new Date(`${selectedDate}T${selectedTime}:00`);
+        if (selectedDateTime <= new Date()) {
+            setMessage("Η ώρα που επέλεξες έχει περάσει. Επίλεξε επόμενη ώρα.");
+            setSelectedTime("");
+            return;
+        }
+
         const form = event.currentTarget;
         const formData = new FormData(form);
 
@@ -144,40 +150,6 @@ function App() {
             setMessage("Δεν ήταν δυνατή η επικοινωνία με τον server.");
         } finally {
             setIsSubmitting(false);
-        }
-    }
-
-    const filteredAppointments = appointments.filter(
-        (appointment) =>
-            searchAmka === "" || appointment.patient_AMKA === searchAmka
-    );
-
-    async function handleDelete(appointmentId) {
-        const confirmed = window.confirm(
-            "Θέλεις σίγουρα να διαγράψεις αυτό το ραντεβού;"
-        );
-
-        if (!confirmed) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/appointments/${appointmentId}`, {
-                method: "DELETE",
-            });
-
-            if (!response.ok) {
-                setMessage("Η διαγραφή απέτυχε. Δοκίμασε ανανέωση της σελίδας.");
-                return;
-            }
-
-            setAppointments((previous) =>
-                previous.filter((appointment) => appointment.id !== appointmentId)
-            );
-
-            setMessage("Το ραντεβού διαγράφηκε.");
-        } catch {
-            setMessage("Δεν ήταν δυνατή η επικοινωνία με τον server.");
         }
     }
 
@@ -267,8 +239,13 @@ function App() {
                                             return <span key={`empty-${index}`} />;
                                         }
 
-                                        const weekday = new Date(year, month, day).getDay();
+                                        const cellDate = new Date(year, month, day);
+                                        const weekday = cellDate.getDay();
                                         const isWeekend = weekday === 0 || weekday === 6;
+                                        const today = new Date();
+                                        today.setHours(0, 0, 0, 0);
+                                        const isPastDay = cellDate < today;
+                                        const isDisabled = isWeekend || isPastDay;
 
                                         const dateValue = [
                                             year,
@@ -282,7 +259,7 @@ function App() {
                                             <button
                                                 key={day}
                                                 type="button"
-                                                className={`calendar-day ${isWeekend
+                                                className={`calendar-day ${isDisabled
                                                     ? "disabled"
                                                     : isSelected
                                                         ? "selected"
@@ -294,7 +271,7 @@ function App() {
                                                     setMessage("");
                                                 }}
                                                 aria-pressed={isSelected}
-                                                disabled={isWeekend}
+                                                disabled={isDisabled}
                                                 aria-label={`${day} ${monthTitle}`}
                                             >
                                                 {day}
@@ -321,9 +298,11 @@ function App() {
                                         </option>
 
                                         {timeSlots
-                                            .filter(
-                                                (time) => !bookedTimesForSelectedDate.includes(time)
-                                            )
+                                            .filter((time) => {
+                                                const slotDate = new Date(`${selectedDate}T${time}:00`);
+                                                return slotDate > new Date() &&
+                                                    !bookedTimesForSelectedDate.includes(time);
+                                            })
                                             .map((time) => (
                                                 <option key={time} value={time}>
                                                     {time}
@@ -348,47 +327,7 @@ function App() {
                     </p>
                 </section>
 
-                <section className="card" aria-labelledby="appointments-heading">
-                    <h2 id="appointments-heading">Ραντεβού</h2>
 
-                    <div className="form-group">
-                        <label htmlFor="search-amka">Αναζήτηση με AMKA</label>
-                        <input
-                            id="search-amka"
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={11}
-                            placeholder="Πληκτρολόγησε AMKA 11 ψηφίων"
-                            value={searchAmka}
-                            onChange={(event) => setSearchAmka(event.target.value)}
-                        />
-                    </div>
-
-                    {filteredAppointments.length === 0 ? (
-                        <p>Δεν βρέθηκαν ραντεβού.</p>
-                    ) : (
-                        <ul>
-                            {filteredAppointments.map((appointment) => (
-                                <li key={appointment.id}>
-                                    {appointment.patient_name}
-                                    {" — "}
-                                    {new Date(appointment.starts_at).toLocaleString("el-GR", {
-                                        timeZone: "Europe/Athens",
-                                        dateStyle: "short",
-                                        timeStyle: "short",
-                                    })}
-                                    {" "}
-                                    <button
-                                        type="button"
-                                        onClick={() => handleDelete(appointment.id)}
-                                    >
-                                        Διαγραφή
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </section>
             </main>
         </div>
     );

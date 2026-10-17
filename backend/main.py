@@ -39,6 +39,14 @@ def get_appointments(patient_AMKA: str | None = None):
 
 @app.post("/appointments", status_code=201)
 def create_appointment(appointment: AppointmentCreate):
+    if appointment.starts_at.utcoffset() is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Η ημερομηνία πρέπει να περιλαμβάνει ζώνη ώρας."
+        )
+
+    local_start = appointment.starts_at.astimezone(ZoneInfo("Europe/Athens"))
+
     if not 9 <= local_start.hour < 17:
         raise HTTPException(
             status_code=400,
@@ -54,16 +62,6 @@ def create_appointment(appointment: AppointmentCreate):
             status_code=400,
             detail="Οι ώρες έναρξης πρέπει να είναι ανά 30 λεπτά."
         )
-    if appointment.starts_at.utcoffset() is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Η ημερομηνία πρέπει να περιλαμβάνει ζώνη ώρας."
-        )
-
-        local_start = appointment.starts_at.astimezone(
-        ZoneInfo("Europe/Athens")
-    )
-
     if local_start <= datetime.now(ZoneInfo("Europe/Athens")):
         raise HTTPException(
             status_code=400,
