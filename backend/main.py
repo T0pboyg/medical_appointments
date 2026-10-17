@@ -10,8 +10,12 @@ from database import delete_appointment_from_db
 from database import get_booked_times_for_date
 from pydantic import StrictBool
 from database import update_appointment_no_show
+from login_session import LoginSessionMiddleware
+from auth import router as auth_router
 
 app = FastAPI()
+app.add_middleware(LoginSessionMiddleware)
+app.include_router(auth_router)
 
 class AppointmentCreate(BaseModel):
     patient_name: str
