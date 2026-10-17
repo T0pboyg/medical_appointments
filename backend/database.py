@@ -39,7 +39,7 @@ def get_appointments_from_db():
             cursor.execute(
                 """
                 SELECT id, patient_name, patient_phone, starts_at,
-                       patient_amka AS "patient_AMKA"
+                       patient_amka AS "patient_AMKA", no_show
                 FROM appointments
                 ORDER BY id;
                 """
@@ -76,3 +76,20 @@ def get_booked_times_for_date(appointment_date):
                 (appointment_date,),
             )
             return [row[0].strftime("%H:%M") for row in cursor.fetchall()]
+
+def update_appointment_no_show(appointment_id, no_show):
+    database_url = os.environ["DATABASE_URL"]
+
+    with psycopg.connect(database_url, row_factory=dict_row) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE appointments
+                SET no_show = %s
+                WHERE id = %s
+                  AND starts_at + INTERVAL '30 minutes' <= CURRENT_TIMESTAMP
+                RETURNING id, no_show;
+                """,
+                (no_show, appointment_id),
+            )
+            return cursor.fetchone()

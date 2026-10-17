@@ -10,3 +10,6 @@ ADD COLUMN IF NOT EXISTS patient_amka TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS appointments_starts_at_unique
 ON appointments (starts_at);
+
+ALTER TABLE appointments
+ADD COLUMN IF NOT EXISTS no_show BOOLEAN NOT NULL DEFAULT FALSE;

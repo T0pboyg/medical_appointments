@@ -8,6 +8,8 @@ from psycopg.errors import UniqueViolation
 from fastapi import Response
 from database import delete_appointment_from_db
 from database import get_booked_times_for_date
+from pydantic import StrictBool
+from database import update_appointment_no_show
 
 app = FastAPI()
 
@@ -18,6 +20,9 @@ class AppointmentCreate(BaseModel):
     patient_AMKA: str
 
 appointments: list[dict] = []
+
+class AppointmentAttendanceUpdate(BaseModel):
+    no_show: StrictBool
 
 
 @app.get("/")
@@ -122,3 +127,21 @@ def get_availability(date: date):
             available_times.append(slot_label)
 
     return available_times
+
+@app.patch("/appointments/{appointment_id}/attendance")
+def update_appointment_attendance(
+    appointment_id: int,
+    attendance: AppointmentAttendanceUpdate,
+):
+    updated = update_appointment_no_show(
+        appointment_id,
+        attendance.no_show,
+    )
+
+    if updated is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Το ραντεβού δεν βρέθηκε ή δεν έχει λήξει ακόμη."
+        )
+
+    return updated

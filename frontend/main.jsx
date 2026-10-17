@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
+import Admin from "./Admin.jsx";
 
 function App() {
     const [calendarMonth, setCalendarMonth] = useState(
@@ -262,10 +263,10 @@ function App() {
                                                 key={day}
                                                 type="button"
                                                 className={`calendar-day ${isDisabled
-                                                        ? "disabled"
-                                                        : isSelected
-                                                            ? "selected"
-                                                            : "available"
+                                                    ? "disabled"
+                                                    : isSelected
+                                                        ? "selected"
+                                                        : "available"
                                                     }`}
                                                 onClick={() => {
                                                     setSelectedDate(dateValue);
@@ -352,5 +353,8 @@ function App() {
 const rootElement = document.getElementById("root");
 
 if (rootElement) {
-    createRoot(rootElement).render(<App />);
+    const page =
+        window.location.pathname === "/admin" ? <Admin /> : <App />;
+
+    createRoot(rootElement).render(page);
 }
