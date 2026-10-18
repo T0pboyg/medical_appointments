@@ -88,3 +88,64 @@ def update_session(session_id, data):
                 (Jsonb(data), session_hash),
             )
             return cursor.fetchone() is not None
+
+def create_staff_session(issuer, subject):
+    session_id = secrets.token_urlsafe(32)
+    session_hash = hashlib.sha256(
+        session_id.encode("utf-8")
+    ).hexdigest()
+
+    data = {
+        "purpose": "staff",
+        "issuer": issuer,
+        "subject": subject,
+        "csrf_token": secrets.token_urlsafe(32),
+    }
+
+    with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO staff_sessions (
+                    session_hash, data, expires_at
+                )
+                VALUES (
+                    %s, %s,
+                    CURRENT_TIMESTAMP + INTERVAL '8 hours'
+                );
+                """,
+                (session_hash, Jsonb(data)),
+            )
+
+    return session_id
+
+
+def get_staff_session(session_id):
+    if not session_id:
+        return None
+
+    session_hash = hashlib.sha256(
+        session_id.encode("utf-8")
+    ).hexdigest()
+
+    with psycopg.connect(
+        os.environ["DATABASE_URL"],
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE staff_sessions
+                SET last_seen_at = CURRENT_TIMESTAMP
+                WHERE session_hash = %s
+                  AND data->>'purpose' = 'staff'
+                  AND expires_at > CURRENT_TIMESTAMP
+                  AND last_seen_at >
+                      CURRENT_TIMESTAMP - INTERVAL '15 minutes'
+                RETURNING data;
+                """,
+                (session_hash,),
+            )
+            row = cursor.fetchone()
+
+    return row["data"] if row else None

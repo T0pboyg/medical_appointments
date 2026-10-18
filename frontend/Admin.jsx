@@ -5,12 +5,29 @@ export default function Admin() {
     const [loadError, setLoadError] = useState("");
     const [searchAmka, setSearchAmka] = useState("");
     const [updatingId, setUpdatingId] = useState(null);
+    const [csrfToken, setCsrfToken] = useState("");
 
     useEffect(() => {
         const controller = new AbortController();
 
         async function fetchAppointments() {
             try {
+                const csrfResponse = await fetch("/api/auth/csrf", {
+                    signal: controller.signal,
+                    cache: "no-store",
+                });
+
+                if (!csrfResponse.ok) {
+                    throw new Error("CSRF request failed");
+                }
+
+                const csrfData = await csrfResponse.json();
+
+                if (controller.signal.aborted) {
+                    return;
+                }
+
+                setCsrfToken(csrfData.csrf_token);
                 const response = await fetch("/api/appointments", {
                     signal: controller.signal,
                 });
@@ -56,6 +73,10 @@ export default function Admin() {
             return;
         }
 
+        if (!csrfToken) {
+            setLoadError("Χρειάζεται ανανέωση της σελίδας ή νέα σύνδεση.");
+            return;
+        }
         setUpdatingId(appointment.id);
         setLoadError("");
 
@@ -66,6 +87,7 @@ export default function Admin() {
                     method: "PATCH",
                     headers: {
                         "Content-Type": "application/json",
+                        "X-CSRF-Token": csrfToken,
                     },
                     body: JSON.stringify({
                         no_show: !appointment.no_show,
@@ -94,10 +116,37 @@ export default function Admin() {
         }
     }
 
+    async function handleLogout() {
+        setLoadError("");
+
+        try {
+            const response = await fetch("/api/auth/logout", {
+                method: "POST",
+                headers: {
+                    "X-CSRF-Token": csrfToken,
+                },
+            });
+
+            if (!response.ok) {
+                setLoadError("Η αποσύνδεση απέτυχε. Δοκίμασε ξανά.");
+                return;
+            }
+
+            setAppointments([]);
+            setCsrfToken("");
+            window.location.assign("/");
+        } catch {
+            setLoadError("Δεν ήταν δυνατή η επικοινωνία με τον server.");
+        }
+    }
+
     return (
         <div className="app-container">
             <header>
                 <h1>Διαχείριση ιατρείου</h1>
+                <button type="button" onClick={handleLogout}>
+                    Αποσύνδεση
+                </button>
             </header>
 
             <main>

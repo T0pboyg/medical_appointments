@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from datetime import date, datetime, time, timedelta
 from pydantic import BaseModel
 from fastapi import HTTPException
@@ -12,6 +12,8 @@ from pydantic import StrictBool
 from database import update_appointment_no_show
 from login_session import LoginSessionMiddleware
 from auth import router as auth_router
+from auth import require_staff
+from auth import require_staff_change
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
@@ -34,7 +36,10 @@ def read_root():
     return {"message": "Το API ανανεώνεται αυτόματα"}
 
 
-@app.get("/appointments")
+@app.get(
+    "/appointments",
+    dependencies=[Depends(require_staff)],
+)
 def get_appointments(patient_AMKA: str | None = None):
 
     stored_appointments = get_appointments_from_db()
@@ -98,7 +103,11 @@ def create_appointment(appointment: AppointmentCreate):
 
 
 
-@app.delete("/appointments/{appointment_id}", status_code=204)
+@app.delete(
+    "/appointments/{appointment_id}",
+    status_code=204,
+    dependencies=[Depends(require_staff_change)],
+)
 def delete_appointment(appointment_id: int):
     deleted = delete_appointment_from_db(appointment_id)
 
@@ -132,7 +141,10 @@ def get_availability(date: date):
 
     return available_times
 
-@app.patch("/appointments/{appointment_id}/attendance")
+@app.patch(
+    "/appointments/{appointment_id}/attendance",
+    dependencies=[Depends(require_staff_change)],
+)
 def update_appointment_attendance(
     appointment_id: int,
     attendance: AppointmentAttendanceUpdate,
