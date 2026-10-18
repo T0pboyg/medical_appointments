@@ -73,3 +73,38 @@ Authentication flow overrides → Browser Flow → medical-staff-browser.
 
 Η τωρινή εγκατάσταση είναι περιβάλλον ανάπτυξης με HTTP.
 Δεν αποτελεί έτοιμη παραγωγική εγκατάσταση.
+
+## Service account ελέγχου πρόσβασης
+
+Δημιουργούμε client medical-access-checker:
+
+- Protocol: OpenID Connect
+- Client authentication: On
+- Service accounts roles: On
+- Standard flow: Off
+- Direct access grants: Off
+- Οι υπόλοιπες προαιρετικές ροές: Off
+
+Στο Service account roles αναθέτουμε:
+realm-management → view-users
+
+Δεν αναθέτουμε manage-users ή realm-admin.
+
+Στο τοπικό .env προσθέτουμε:
+
+KEYCLOAK_ACCESS_CLIENT_ID=medical-access-checker
+KEYCLOAK_ACCESS_CLIENT_SECRET=το_secret_της_δικής_μας_εγκατάστασης
+
+Το πραγματικό secret δεν αποθηκεύεται στο Git.
+
+Το backend επανελέγχει την ενεργή κατάσταση και τον realm role staff
+σε κάθε προστατευμένο αίτημα.
+
+Αν αφαιρεθεί ο ρόλος ή απενεργοποιηθεί ο χρήστης:
+- Το επόμενο προστατευμένο αίτημα απορρίπτεται με 401.
+- Διαγράφονται όλες οι τοπικές συνεδρίες του χρήστη.
+- Μετά την αποκατάσταση δικαιωμάτων απαιτείται νέο login.
+
+Αν το Keycloak δεν είναι διαθέσιμο:
+- Η προστατευμένη ενέργεια απορρίπτεται με 503.
+- Η τοπική συνεδρία δεν διαγράφεται εξαιτίας της διακοπής.
