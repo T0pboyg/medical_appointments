@@ -1,5 +1,9 @@
 import os
 import secrets
+import httpx
+
+from access_control import is_active_staff
+from sessions import delete_staff_sessions_for_user
 
 from authlib.integrations.base_client.errors import OAuthError
 from authlib.integrations.starlette_client import OAuth
@@ -131,13 +135,41 @@ async def require_staff(request: Request):
             detail="Απαιτείται σύνδεση προσωπικού.",
         )
 
-    if session.get("issuer") != os.environ["OIDC_ISSUER"]:
+    issuer = session.get("issuer")
+    subject = session.get("subject")
+
+    if (
+        issuer != os.environ["OIDC_ISSUER"]
+        or not isinstance(subject, str)
+        or not subject
+    ):
         raise HTTPException(
             status_code=401,
             detail="Η συνεδρία δεν είναι έγκυρη.",
         )
 
+    try:
+        allowed = await is_active_staff(subject)
+    except httpx.HTTPError:
+        raise HTTPException(
+            status_code=503,
+            detail="Δεν είναι διαθέσιμος ο έλεγχος πρόσβασης. Δοκίμασε αργότερα.",
+        ) from None
+
+    if not allowed:
+        await run_in_threadpool(
+            delete_staff_sessions_for_user,
+            issuer,
+            subject,
+        )
+
+        raise HTTPException(
+            status_code=401,
+            detail="Η πρόσβαση προσωπικού έχει ανακληθεί.",
+        )
+
     return session
+
 
 @router.get("/csrf")
 async def get_csrf_token(session: dict = Depends(require_staff)):

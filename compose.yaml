@@ -13,6 +13,8 @@ services:
       OIDC_ISSUER: http://localhost:8080/realms/medical-appointments
       OIDC_METADATA_URL: http://keycloak:8080/realms/medical-appointments/.well-known/openid-configuration
       OIDC_REDIRECT_URI: http://localhost:5173/api/auth/callback
+      KEYCLOAK_ACCESS_CLIENT_ID: ${KEYCLOAK_ACCESS_CLIENT_ID:?Set KEYCLOAK_ACCESS_CLIENT_ID}
+      KEYCLOAK_ACCESS_CLIENT_SECRET: ${KEYCLOAK_ACCESS_CLIENT_SECRET:?Set KEYCLOAK_ACCESS_CLIENT_SECRET}
 
   frontend:
     image: node:22-slim

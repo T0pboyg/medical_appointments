@@ -149,3 +149,18 @@ def get_staff_session(session_id):
             row = cursor.fetchone()
 
     return row["data"] if row else None
+
+
+def delete_staff_sessions_for_user(issuer, subject):
+    with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM staff_sessions
+                WHERE data->>'purpose' = 'staff'
+                  AND data->>'issuer' = %s
+                  AND data->>'subject' = %s;
+                """,
+                (issuer, subject),
+            )
+            return cursor.rowcount
