@@ -141,3 +141,27 @@ http://localhost:5173/api/appointments
 
 Το Vite είναι server ανάπτυξης. Η παραγωγική εγκατάσταση
 χρειάζεται ξεχωριστή ρύθμιση έμπιστου reverse proxy.
+
+## Προστασία από επαναλαμβανόμενες αποτυχίες σύνδεσης
+
+Realm settings → Security defenses → Brute force detection:
+
+- Brute Force Mode: Lockout temporarily
+- Max login failures: 5
+- Maximum Secondary Authentication Failures: 0
+- Strategy to increase wait time: Multiple
+- Wait increment: 1 Minute
+- Max wait: 15 Minutes
+- Failure reset time: 12 Hours
+- Quick login check milliseconds: 1000
+- Minimum quick login wait: 1 Minute
+
+Οι τιμές είναι αρχική πολιτική του εκπαιδευτικού περιβάλλοντος.
+
+Το Maximum Secondary Authentication Failures παραμένει 0,
+ώστε να μην ενεργοποιείται ξεχωριστός μόνιμος αποκλεισμός OTP.
+
+Έλεγχος με δοκιμαστικό χρήστη:
+Μετά από 5 λάθος κωδικούς, ο σωστός απορρίπτεται προσωρινά.
+Μετά την αναμονή επιτρέπεται ξανά η ταυτοποίηση.
+Ο χρήστης χωρίς staff εξακολουθεί να απορρίπτεται από την εφαρμογή.

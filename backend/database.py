@@ -77,7 +77,13 @@ def get_booked_times_for_date(appointment_date):
             )
             return [row[0].strftime("%H:%M") for row in cursor.fetchall()]
 
-def update_appointment_no_show(appointment_id, no_show):
+def update_appointment_no_show(
+    appointment_id,
+    no_show,
+    actor_issuer,
+    actor_subject,
+    correlation_id,
+):
     database_url = os.environ["DATABASE_URL"]
 
     with psycopg.connect(database_url, row_factory=dict_row) as connection:
@@ -87,9 +93,42 @@ def update_appointment_no_show(appointment_id, no_show):
                 UPDATE appointments
                 SET no_show = %s
                 WHERE id = %s
-                  AND starts_at + INTERVAL '30 minutes' <= CURRENT_TIMESTAMP
+                  AND starts_at + INTERVAL '30 minutes'
+                      <= CURRENT_TIMESTAMP
                 RETURNING id, no_show;
                 """,
                 (no_show, appointment_id),
             )
-            return cursor.fetchone()
+
+            updated = cursor.fetchone()
+
+            if updated is None:
+                return None
+
+            action = (
+                "appointment.marked_no_show"
+                if no_show
+                else "appointment.marked_completed"
+            )
+
+            cursor.execute(
+                """
+                INSERT INTO audit_events (
+                    actor_issuer,
+                    actor_subject,
+                    action,
+                    appointment_id,
+                    correlation_id
+                )
+                VALUES (%s, %s, %s, %s, %s);
+                """,
+                (
+                    actor_issuer,
+                    actor_subject,
+                    action,
+                    appointment_id,
+                    correlation_id,
+                ),
+            )
+
+            return updated

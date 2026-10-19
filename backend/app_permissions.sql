@@ -1,0 +1,19 @@
+GRANT CONNECT ON DATABASE appointments TO appointments_app;
+
+GRANT USAGE ON SCHEMA public TO appointments_app;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON TABLE appointments, staff_sessions, booking_rate_limits
+TO appointments_app;
+
+GRANT USAGE
+ON SEQUENCE appointments_id_seq
+TO appointments_app;
+
+GRANT INSERT
+ON TABLE audit_events
+TO appointments_app;
+
+GRANT USAGE
+ON SEQUENCE audit_events_id_seq
+TO appointments_app;

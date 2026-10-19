@@ -2,12 +2,13 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     volumes:
       - ./backend:/app
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload","--no-access-log"]
     environment:
-      DATABASE_URL: postgresql://appointments:local_dev_password@db:5432/appointments
+      DATABASE_URL: postgresql://appointments_app@db:5432/appointments
+      PGPASSWORD: ${APP_DATABASE_PASSWORD:?Set APP_DATABASE_PASSWORD}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?Set OIDC_CLIENT_ID}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?Set OIDC_CLIENT_SECRET}
       OIDC_ISSUER: http://localhost:8080/realms/medical-appointments
@@ -16,12 +17,19 @@ services:
       KEYCLOAK_ACCESS_CLIENT_ID: ${KEYCLOAK_ACCESS_CLIENT_ID:?Set KEYCLOAK_ACCESS_CLIENT_ID}
       KEYCLOAK_ACCESS_CLIENT_SECRET: ${KEYCLOAK_ACCESS_CLIENT_SECRET:?Set KEYCLOAK_ACCESS_CLIENT_SECRET}
       API_PROXY_SECRET: ${API_PROXY_SECRET:?Set API_PROXY_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
   frontend:
     image: node:22-slim
     working_dir: /app
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
@@ -33,11 +41,16 @@ services:
     image: postgres:16
     environment:
       POSTGRES_USER: appointments
-      POSTGRES_PASSWORD: local_dev_password
+      POSTGRES_PASSWORD: ${MIGRATION_DATABASE_PASSWORD:?Set MIGRATION_DATABASE_PASSWORD}
       POSTGRES_DB: appointments
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appointments -d appointments"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.1
@@ -57,9 +70,36 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      DATABASE_URL: postgresql://appointments:local_dev_password@db:5432/appointments
+      DATABASE_URL: postgresql://appointments_app@db:5432/appointments
+      PGPASSWORD: ${APP_DATABASE_PASSWORD:?Set APP_DATABASE_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
     command: ["python", "-u", "cleanup_worker.py"]
     restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  migrate:
+    build: ./backend
+    profiles:
+      - maintenance
+    volumes:
+      - ./backend:/app:ro
+    environment:
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:?Set MIGRATION_DATABASE_URL}
+      PGPASSWORD: ${MIGRATION_DATABASE_PASSWORD:?Set MIGRATION_DATABASE_PASSWORD}
+      PYTHONDONTWRITEBYTECODE: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: ["python", "migrate.py"]
 
 volumes:
   postgres_data:

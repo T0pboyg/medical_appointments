@@ -21,9 +21,12 @@ from pydantic import field_validator
 from pydantic import ConfigDict
 from fastapi import Request
 from rate_limits import require_booking_limit
+from body_limit import RequestBodyLimitMiddleware
+from uuid import uuid4
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
+app.add_middleware(RequestBodyLimitMiddleware, max_bytes=16 * 1024)
 app.include_router(auth_router)
 
 class AppointmentCreate(BaseModel):
@@ -198,23 +201,24 @@ def get_availability(date: date):
 
     return available_times
 
-@app.patch(
-    "/appointments/{appointment_id}/attendance",
-    dependencies=[Depends(require_staff_change)],
-)
+@app.patch("/appointments/{appointment_id}/attendance")
 def update_appointment_attendance(
     appointment_id: int,
     attendance: AppointmentAttendanceUpdate,
+    session: dict = Depends(require_staff_change),
 ):
     updated = update_appointment_no_show(
         appointment_id,
         attendance.no_show,
+        session["issuer"],
+        session["subject"],
+        uuid4(),
     )
 
     if updated is None:
         raise HTTPException(
             status_code=404,
-            detail="Το ραντεβού δεν βρέθηκε ή δεν έχει λήξει ακόμη."
+            detail="Το ραντεβού δεν βρέθηκε ή δεν έχει λήξει ακόμη.",
         )
 
     return updated
