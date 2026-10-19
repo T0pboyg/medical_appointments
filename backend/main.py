@@ -14,18 +14,53 @@ from login_session import LoginSessionMiddleware
 from auth import router as auth_router
 from auth import require_staff
 from auth import require_staff_change
+from typing import Annotated
+from pydantic import StringConstraints
+import re
+from pydantic import field_validator
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
 app.include_router(auth_router)
 
 class AppointmentCreate(BaseModel):
-    patient_name: str
+    patient_name: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True,
+            min_length=1,
+            max_length=100,
+        ),
+    ]
     patient_phone: str
     starts_at: datetime
-    patient_AMKA: str
+    patient_AMKA: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True,
+            min_length=11,
+            max_length=11,
+            pattern=r"^[0-9]{11}$",
+        ),
+    ]
+    @field_validator("patient_phone")
+    @classmethod
+    def validate_patient_phone(cls, value):
+        if len(value) > 30:
+            raise ValueError("Το τηλέφωνο είναι υπερβολικά μεγάλο.")
 
-appointments: list[dict] = []
+        normalized = re.sub(r"[ -]", "", value)
+
+        if normalized.startswith("+30"):
+            normalized = normalized[3:]
+
+        if not re.fullmatch(r"(?:69[0-9]{8}|2[0-9]{9})", normalized):
+            raise ValueError(
+                "Δώσε ελληνικό κινητό ή σταθερό 10 ψηφίων, "
+                "με προαιρετικό πρόθεμα +30."
+            )
+
+        return "+30" + normalized
 
 class AppointmentAttendanceUpdate(BaseModel):
     no_show: StrictBool
