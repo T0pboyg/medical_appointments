@@ -82,7 +82,11 @@ def read_root():
     "/appointments",
     dependencies=[Depends(require_staff)],
 )
-def get_appointments(patient_AMKA: str | None = None):
+def get_appointments(
+    response: Response,
+    patient_AMKA: str | None = None,
+):
+    response.headers["Cache-Control"] = "no-store"
 
     stored_appointments = get_appointments_from_db()
     if patient_AMKA:
@@ -99,7 +103,11 @@ def get_appointments(patient_AMKA: str | None = None):
     status_code=201,
     response_model=AppointmentCreated,
 )
-def create_appointment(appointment: AppointmentCreate):
+def create_appointment(
+    appointment: AppointmentCreate,
+    response: Response,
+):
+    response.headers["Cache-Control"] = "no-store"
     if appointment.starts_at.utcoffset() is None:
         raise HTTPException(
             status_code=400,
