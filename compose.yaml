@@ -52,6 +52,15 @@ services:
     volumes:
       - keycloak_data:/opt/keycloak/data
 
+  cleanup:
+    build: ./backend
+    volumes:
+      - ./backend:/app
+    environment:
+      DATABASE_URL: postgresql://appointments:local_dev_password@db:5432/appointments
+    command: ["python", "-u", "cleanup_worker.py"]
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   frontend_node_modules:
