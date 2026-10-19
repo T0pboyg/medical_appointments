@@ -166,15 +166,22 @@ def create_appointment(
 @app.delete(
     "/appointments/{appointment_id}",
     status_code=204,
-    dependencies=[Depends(require_staff_change)],
 )
-def delete_appointment(appointment_id: int):
-    deleted = delete_appointment_from_db(appointment_id)
+def delete_appointment(
+    appointment_id: int,
+    session: dict = Depends(require_staff_change),
+):
+    deleted = delete_appointment_from_db(
+        appointment_id,
+        session["issuer"],
+        session["subject"],
+        uuid4(),
+    )
 
     if not deleted:
         raise HTTPException(
             status_code=404,
-            detail="Το ραντεβού δεν βρέθηκε."
+            detail="Το ραντεβού δεν βρέθηκε.",
         )
 
     return Response(status_code=204)

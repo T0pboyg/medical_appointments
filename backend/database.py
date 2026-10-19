@@ -46,7 +46,12 @@ def get_appointments_from_db():
             )
             return cursor.fetchall()
 
-def delete_appointment_from_db(appointment_id):
+def delete_appointment_from_db(
+    appointment_id,
+    actor_issuer,
+    actor_subject,
+    correlation_id,
+):
     database_url = os.environ["DATABASE_URL"]
 
     with psycopg.connect(database_url) as connection:
@@ -59,7 +64,33 @@ def delete_appointment_from_db(appointment_id):
                 """,
                 (appointment_id,),
             )
-            return cursor.fetchone() is not None
+
+            deleted = cursor.fetchone()
+
+            if deleted is None:
+                return False
+
+            cursor.execute(
+                """
+                INSERT INTO audit_events (
+                    actor_issuer,
+                    actor_subject,
+                    action,
+                    appointment_id,
+                    correlation_id
+                )
+                VALUES (%s, %s, %s, %s, %s);
+                """,
+                (
+                    actor_issuer,
+                    actor_subject,
+                    "appointment.deleted",
+                    appointment_id,
+                    correlation_id,
+                ),
+            )
+
+    return True
 
 def get_booked_times_for_date(appointment_date):
     database_url = os.environ["DATABASE_URL"]

@@ -116,6 +116,51 @@ export default function Admin() {
         }
     }
 
+    async function handleDelete(appointment) {
+        if (updatingId !== null) {
+            return;
+        }
+
+        if (!csrfToken) {
+            setLoadError("Χρειάζεται ανανέωση της σελίδας ή νέα σύνδεση.");
+            return;
+        }
+
+        if (!window.confirm(
+            `Να διαγραφεί οριστικά το ραντεβού #${appointment.id};`
+        )) {
+            return;
+        }
+
+        setUpdatingId(appointment.id);
+        setLoadError("");
+
+        try {
+            const response = await fetch(
+                `/api/appointments/${appointment.id}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        "X-CSRF-Token": csrfToken,
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                setLoadError("Η διαγραφή απέτυχε. Ανανέωσε τη σελίδα και δοκίμασε ξανά.");
+                return;
+            }
+
+            setAppointments((previous) =>
+                previous.filter((item) => item.id !== appointment.id)
+            );
+        } catch {
+            setLoadError("Δεν ήταν δυνατή η επικοινωνία με τον server.");
+        } finally {
+            setUpdatingId(null);
+        }
+    }
+
     async function handleLogout() {
         setLoadError("");
 
@@ -205,6 +250,13 @@ export default function Admin() {
                                                                 : "Δεν προσήλθε"}
                                                     </button>
                                                 )}
+                                            <button
+                                                type="button"
+                                                disabled={updatingId !== null || !csrfToken}
+                                                onClick={() => handleDelete(appointment)}
+                                            >
+                                                Διαγραφή
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
