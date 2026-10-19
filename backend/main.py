@@ -18,12 +18,14 @@ from typing import Annotated
 from pydantic import StringConstraints
 import re
 from pydantic import field_validator
+from pydantic import ConfigDict
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
 app.include_router(auth_router)
 
 class AppointmentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     patient_name: Annotated[
         str,
         StringConstraints(
@@ -63,8 +65,13 @@ class AppointmentCreate(BaseModel):
         return "+30" + normalized
 
 class AppointmentAttendanceUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     no_show: StrictBool
 
+class AppointmentCreated(BaseModel):
+    id: int
+    starts_at: datetime
 
 @app.get("/")
 def read_root():
@@ -87,7 +94,11 @@ def get_appointments(patient_AMKA: str | None = None):
     return stored_appointments
 
 
-@app.post("/appointments", status_code=201)
+@app.post(
+    "/appointments",
+    status_code=201,
+    response_model=AppointmentCreated,
+)
 def create_appointment(appointment: AppointmentCreate):
     if appointment.starts_at.utcoffset() is None:
         raise HTTPException(
