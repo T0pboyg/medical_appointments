@@ -201,7 +201,10 @@ async def require_staff_change(
 
     if (
         not isinstance(expected_token, str)
+        or not expected_token
+        or not expected_token.isascii()
         or not received_token
+        or not received_token.isascii()
         or not secrets.compare_digest(expected_token, received_token)
     ):
         raise HTTPException(

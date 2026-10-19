@@ -1,0 +1,112 @@
+name: Security checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: appointments
+          POSTGRES_PASSWORD: ci-test-password
+          POSTGRES_DB: appointments_migration_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U appointments -d appointments_migration_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      DATABASE_URL: postgresql://appointments@localhost:5432/appointments_migration_test
+      PGPASSWORD: ci-test-password
+      OIDC_CLIENT_ID: ci-client
+      OIDC_CLIENT_SECRET: ci-placeholder
+      OIDC_ISSUER: http://localhost:8080/realms/medical-appointments
+      OIDC_METADATA_URL: http://localhost:8080/realms/medical-appointments/.well-known/openid-configuration
+      OIDC_REDIRECT_URI: http://localhost:5173/api/auth/callback
+      KEYCLOAK_ACCESS_CLIENT_ID: ci-access-checker
+      KEYCLOAK_ACCESS_CLIENT_SECRET: ci-placeholder
+      API_PROXY_SECRET: ci-proxy-placeholder
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install locked dependencies
+        run: python -m pip install --require-hashes -r requirements.lock
+
+      - name: Check dependency compatibility
+        run: python -m pip check
+
+      - name: Apply migrations to temporary database
+        run: python migrate.py
+
+      - name: Run backend tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+  backend-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install audit tool
+        run: python -m pip install pip-audit
+
+      - name: Audit locked backend dependencies
+        run: >-
+          python -m pip_audit
+          -r backend/requirements.lock
+          --no-deps
+          --disable-pip
+
+  frontend-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Audit frontend dependencies
+        run: npm audit

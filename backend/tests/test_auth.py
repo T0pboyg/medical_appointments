@@ -187,3 +187,21 @@ class StaffAccessTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(error.exception.status_code, 401)
             check_access.assert_not_awaited()
+
+
+    async def test_non_ascii_csrf_token_is_rejected(self):
+        from auth import require_staff_change
+
+        request = Request({
+            "type": "http",
+            "headers": [
+                (b"origin", b"http://localhost:5173"),
+                (b"x-csrf-token", b"invalid-\xff-token"),
+            ],
+        })
+        session = {"csrf_token": "correct-token"}
+
+        with self.assertRaises(HTTPException) as error:
+            await require_staff_change(request, session)
+
+        self.assertEqual(error.exception.status_code, 403)
