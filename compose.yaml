@@ -15,6 +15,7 @@ services:
       OIDC_REDIRECT_URI: http://localhost:5173/api/auth/callback
       KEYCLOAK_ACCESS_CLIENT_ID: ${KEYCLOAK_ACCESS_CLIENT_ID:?Set KEYCLOAK_ACCESS_CLIENT_ID}
       KEYCLOAK_ACCESS_CLIENT_SECRET: ${KEYCLOAK_ACCESS_CLIENT_SECRET:?Set KEYCLOAK_ACCESS_CLIENT_SECRET}
+      API_PROXY_SECRET: ${API_PROXY_SECRET:?Set API_PROXY_SECRET}
 
   frontend:
     image: node:22-slim
@@ -25,6 +26,8 @@ services:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
     command: sh -c "npm install && npm run dev"
+    environment:
+      API_PROXY_SECRET: ${API_PROXY_SECRET:?Set API_PROXY_SECRET}
 
   db:
     image: postgres:16

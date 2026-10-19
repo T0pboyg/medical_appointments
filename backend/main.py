@@ -19,6 +19,8 @@ from pydantic import StringConstraints
 import re
 from pydantic import field_validator
 from pydantic import ConfigDict
+from fastapi import Request
+from rate_limits import require_booking_limit
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
@@ -102,6 +104,7 @@ def get_appointments(
     "/appointments",
     status_code=201,
     response_model=AppointmentCreated,
+    dependencies=[Depends(require_booking_limit)],
 )
 def create_appointment(
     appointment: AppointmentCreate,

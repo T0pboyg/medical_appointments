@@ -25,3 +25,10 @@ CREATE TABLE IF NOT EXISTS staff_sessions (
 
 CREATE INDEX IF NOT EXISTS staff_sessions_expires_at_idx
 ON staff_sessions (expires_at);
+
+CREATE TABLE IF NOT EXISTS booking_rate_limits (
+    client_ip INET NOT NULL,
+    window_start TIMESTAMPTZ NOT NULL,
+    request_count INTEGER NOT NULL CHECK (request_count > 0),
+    PRIMARY KEY (client_ip, window_start)
+);
