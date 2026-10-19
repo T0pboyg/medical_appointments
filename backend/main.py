@@ -23,11 +23,33 @@ from fastapi import Request
 from rate_limits import require_booking_limit
 from body_limit import RequestBodyLimitMiddleware
 from uuid import uuid4
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
 app.add_middleware(RequestBodyLimitMiddleware, max_bytes=16 * 1024)
 app.include_router(auth_router)
+
+@app.exception_handler(RequestValidationError)
+async def handle_validation_error(
+    request: Request,
+    exc: RequestValidationError,
+):
+    errors = [
+        {
+            "type": error["type"],
+            "loc": error["loc"],
+            "msg": error["msg"],
+        }
+        for error in exc.errors()
+    ]
+
+    return JSONResponse(
+        status_code=422,
+        content={"detail": errors},
+        headers={"Cache-Control": "no-store"},
+    )
 
 class AppointmentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
