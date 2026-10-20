@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import Admin from "./Admin.jsx"
+import Admin from "./Admin.jsx";
 
 function App() {
     const [calendarMonth, setCalendarMonth] = useState(
