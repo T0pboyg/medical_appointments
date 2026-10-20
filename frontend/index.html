@@ -17,36 +17,6 @@
 
 <body>
     <div id="root"></div>
-    <div class="app-container">
-
-
-        <main>
-            <!-- Φόρμα δημιουργίας ραντεβού -->
-            <section class="card" aria-labelledby="create-heading">
-
-                <form id="appointment-form">
-                    <div class="form-group">
-                        <label>Επιλογή Ημέρας & Ώρας</label>
-
-                        <!-- Hidden input για να αποθηκεύεται η επιλεγμένη ημερομηνία -->
-                        <input type="hidden" id="selected-date" name="selected_date" required>
-
-                        <!-- Επιλογή Ώρας (εμφανίζεται αφού επιλεγεί μέρα) -->
-                        <div id="time-selection-wrapper" class="time-wrapper" style="display: none;">
-                            <label for="time-slot">Διαθέσιμες Ώρες για την επιλεγμένη μέρα:</label>
-                            <select id="time-slot" name="time_slot" required>
-                                <option value="">-- Επιλέξτε ώρα --</option>
-                                <!-- Οι ώρες γεμίζουν δυναμικά -->
-                            </select>
-                        </div>
-                    </div>
-
-                </form>
-            </section>
-
-
-        </main>
-    </div>
 </body>
 
 </html>

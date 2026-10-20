@@ -135,10 +135,22 @@ function App() {
             if (!response.ok) {
                 const errorData = await response.json();
 
+                const fieldErrors = {
+                    patient_name: "Ονοματεπώνυμο: συμπλήρωσε από 1 έως 100 χαρακτήρες.",
+                    patient_phone: "Τηλέφωνο: δώσε ελληνικό κινητό (69…) ή σταθερό (2…) με 10 ψηφία. Επιτρέπεται το πρόθεμα +30.",
+                    patient_AMKA: "ΑΜΚΑ: συμπλήρωσε ακριβώς 11 ψηφία.",
+                    starts_at: "Ημέρα και ώρα: επίλεξε ξανά ένα διαθέσιμο ραντεβού.",
+                };
+                const details = Array.isArray(errorData.detail)
+                    ? [...new Set(errorData.detail.map((error) =>
+                        fieldErrors[error.loc?.[1]] || "Έλεγξε τα στοιχεία του ραντεβού."
+                    ))].join(" ")
+                    : "";
+
                 setMessage(
                     typeof errorData.detail === "string"
                         ? errorData.detail
-                        : "Η κράτηση απέτυχε. Έλεγξε τα στοιχεία του ραντεβού."
+                        : details || "Η κράτηση απέτυχε. Έλεγξε τα στοιχεία του ραντεβού."
                 );
                 return;
             }
@@ -155,14 +167,27 @@ function App() {
     }
 
     return (
-        <div className="app-container">
-            <header>
-                <h1>Ιατρείο — Διαχείριση ραντεβού</h1>
+        <div className="app-container booking-app">
+            <header className="site-header">
+                <a className="brand" href="/" aria-label="Αρχική"><span className="brand-mark" aria-hidden="true">+</span><span>ιατρείο<span className="brand-dot">.</span></span></a>
+                <span className="header-note"><span className="status-dot" /> Online ραντεβού</span>
             </header>
+            <div className="booking-layout">
+                <aside className="intro-panel">
+                    <h1>Η υγεία σου.<br />Ο χρόνος σου.<br /><em>Το ραντεβού σου.</em></h1>
+                    <p className="intro-copy">Διάλεξε ημέρα και ώρα.</p>
+                    <div className="care-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="art-cross">+</div></div>
+                    <div className="appointment-summary" aria-live="polite">
+                        <span className="eyebrow">Η ΕΠΙΛΟΓΗ ΣΟΥ</span>
+                        <strong>{selectedDate ? new Date(`${selectedDate}T12:00:00`).toLocaleDateString("el-GR", { weekday: "long", day: "numeric", month: "long" }) : "Επίλεξε ημέρα"}</strong>
+                        <span>{selectedTime ? `Ώρα επίσκεψης · ${selectedTime}` : selectedDate ? "Διάλεξε μία από τις διαθέσιμες ώρες." : "Επίλεξε ημέρα από το ημερολόγιο."}</span>
+                    </div>
+                </aside>
 
             <main>
                 <section className="card" aria-labelledby="create-heading">
-                    <h2 id="create-heading">Νέο ραντεβού</h2>
+                    <div className="card-heading"><span className="eyebrow">ΚΛΕΙΣΕ ΤΗΝ ΕΠΙΣΚΕΨΗ ΣΟΥ</span><h2 id="create-heading">Ας βρούμε την ώρα σου<span className="brand-dot">.</span></h2></div>
+                    <ol className="booking-steps" aria-label="Πρόοδος κράτησης"><li className="active"><span>01</span> Στοιχεία</li><li className={selectedDate ? "active" : ""}><span>02</span> Ημέρα</li><li className={selectedTime ? "active" : ""}><span>03</span> Ώρα</li></ol>
 
                     <form id="appointment-form" onSubmit={handleSubmit}>
                         <div className="form-group">
@@ -172,6 +197,7 @@ function App() {
                                 id="patient-name"
                                 name="patient_name"
                                 autoComplete="name"
+                                maxLength={100}
                                 placeholder="π.χ. Μαρία Παπαδοπούλου"
                                 required
                             />
@@ -184,6 +210,9 @@ function App() {
                                 id="patient-phone"
                                 name="patient_phone"
                                 autoComplete="tel"
+                                maxLength={30}
+                                pattern="(?:\+30)?[ \-]*(?:69[0-9]|2[0-9]{2})(?:[ \-]*[0-9]){7}"
+                                title="Ελληνικό κινητό (69…) ή σταθερό (2…) με 10 ψηφία, προαιρετικά με +30."
                                 placeholder="π.χ. 6912345678"
                                 required
                             />
@@ -205,7 +234,7 @@ function App() {
                         </div>
 
                         <div className="form-group">
-                            <p>Επιλογή Ημέρας &amp; Ώρας</p>
+                            <p className="section-label">Ημέρα &amp; ώρα <span>Δευτέρα – Παρασκευή</span></p>
 
                             <div id="custom-calendar" className="calendar-container">
                                 <div className="calendar-header">
@@ -285,33 +314,16 @@ function App() {
                             </div>
 
                             {selectedDate && (
-                                <div className="time-wrapper">
-                                    <label htmlFor="time-slot">Ώρα ραντεβού</label>
+                                <div className="time-wrapper" aria-busy={isLoadingTimes}>
+                                    <p id="time-slots-heading">Ώρα ραντεβού</p>
 
-                                    <select
-                                        id="time-slot"
-                                        name="time_slot"
-                                        value={selectedTime}
-                                        disabled={
-                                            isLoadingTimes ||
-                                            Boolean(availabilityError) ||
-                                            availableTimeSlots.length === 0
-                                        }
-                                        onChange={(event) => {
-                                            setSelectedTime(event.target.value);
-                                            setMessage("");
-                                        }}
-                                    >
-                                        <option value="" disabled>
-                                            Επιλέξτε ώρα
-                                        </option>
-
-                                        {availableTimeSlots.map((time) => (
-                                            <option key={time} value={time}>
-                                                {time}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    {!isLoadingTimes && !availabilityError && availableTimeSlots.length > 0 && (
+                                        <div className="time-chips" role="group" aria-labelledby="time-slots-heading">
+                                            {availableTimeSlots.map((time) => (
+                                                <button type="button" key={time} aria-pressed={selectedTime === time} className={selectedTime === time ? "time-chip selected" : "time-chip"} onClick={() => { setSelectedTime(time); setMessage(""); }}>{time}</button>
+                                            ))}
+                                        </div>
+                                    )}
 
                                     {isLoadingTimes && (
                                         <p role="status">Φόρτωση διαθέσιμων ωρών…</p>
@@ -346,6 +358,7 @@ function App() {
                     </p>
                 </section>
             </main>
+            </div>
         </div>
     );
 }
