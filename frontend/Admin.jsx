@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 export default function Admin() {
     const [appointments, setAppointments] = useState([]);
@@ -6,6 +6,21 @@ export default function Admin() {
     const [searchAmka, setSearchAmka] = useState("");
     const [updatingId, setUpdatingId] = useState(null);
     const [csrfToken, setCsrfToken] = useState("");
+    const [needsLogin, setNeedsLogin] = useState(false);
+
+    const handleUnauthorized = useCallback((response) => {
+        if (response.status !== 401) {
+            return false;
+        }
+
+        setAppointments([]);
+        setSearchAmka("");
+        setCsrfToken("");
+        setNeedsLogin(true);
+        setLoadError("Η σύνδεση δεν είναι πλέον ενεργή. Συνδέσου ξανά.");
+
+        return true;
+    }, []);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -16,6 +31,14 @@ export default function Admin() {
                     signal: controller.signal,
                     cache: "no-store",
                 });
+
+                if (controller.signal.aborted) {
+                    return;
+                }
+
+                if (handleUnauthorized(csrfResponse)) {
+                    return;
+                }
 
                 if (!csrfResponse.ok) {
                     throw new Error("CSRF request failed");
@@ -31,6 +54,14 @@ export default function Admin() {
                 const response = await fetch("/api/appointments", {
                     signal: controller.signal,
                 });
+
+                if (controller.signal.aborted) {
+                    return;
+                }
+
+                if (handleUnauthorized(response)) {
+                    return;
+                }
 
                 if (!response.ok) {
                     throw new Error("Appointments request failed");
@@ -51,7 +82,7 @@ export default function Admin() {
         fetchAppointments();
 
         return () => controller.abort();
-    }, []);
+    }, [handleUnauthorized]);
 
     const filteredAppointments = appointments.filter(
         (appointment) =>
@@ -94,6 +125,10 @@ export default function Admin() {
                     }),
                 }
             );
+
+            if (handleUnauthorized(response)) {
+                return;
+            }
 
             if (!response.ok) {
                 setLoadError("Δεν ήταν δυνατή η αλλαγή κατάστασης.");
@@ -146,6 +181,10 @@ export default function Admin() {
                 }
             );
 
+            if (handleUnauthorized(response)) {
+                return;
+            }
+
             if (!response.ok) {
                 setLoadError("Η διαγραφή απέτυχε. Ανανέωσε τη σελίδα και δοκίμασε ξανά.");
                 return;
@@ -172,8 +211,11 @@ export default function Admin() {
                 },
             });
 
-            if (!response.ok) {
-                setLoadError("Η αποσύνδεση απέτυχε. Δοκίμασε ξανά.");
+            if (handleUnauthorized(response)) {
+                return;
+            }
+
+            if (handleUnauthorized(response)) {
                 return;
             }
 
@@ -189,7 +231,7 @@ export default function Admin() {
         <div className="app-container">
             <header>
                 <h1>Διαχείριση ιατρείου</h1>
-                <button type="button" onClick={handleLogout}>
+                <button type="button" onClick={handleLogout} disabled={needsLogin || !csrfToken}>
                     Αποσύνδεση
                 </button>
             </header>
@@ -210,6 +252,11 @@ export default function Admin() {
                         />
                     </div>
                     {loadError && <p role="alert">{loadError}</p>}
+                    {needsLogin && (
+                        <a href="/api/auth/login">
+                            Σύνδεση προσωπικού
+                        </a>
+                    )}
                     <div className="table-wrapper">
                         <table>
                             <thead>

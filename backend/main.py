@@ -25,10 +25,12 @@ from body_limit import RequestBodyLimitMiddleware
 from uuid import uuid4
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from security_headers import SecurityHeadersMiddleware
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
 app.add_middleware(RequestBodyLimitMiddleware, max_bytes=16 * 1024)
+app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(auth_router)
 
 @app.exception_handler(RequestValidationError)
