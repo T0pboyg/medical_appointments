@@ -6,7 +6,7 @@ from database import get_appointments_from_db,create_appointment_in_db
 from zoneinfo import ZoneInfo
 from psycopg.errors import UniqueViolation
 from fastapi import Response
-from database import delete_appointment_from_db
+from database import cancel_appointment_in_db
 from database import get_booked_times_for_date
 from pydantic import StrictBool
 from database import update_appointment_no_show
@@ -187,28 +187,35 @@ def create_appointment(
 
 
 
-@app.delete(
-    "/appointments/{appointment_id}",
-    status_code=204,
-)
-def delete_appointment(
+@app.post("/appointments/{appointment_id}/cancel")
+def cancel_appointment(
     appointment_id: int,
     session: dict = Depends(require_staff_change),
 ):
-    deleted = delete_appointment_from_db(
+    cancelled = cancel_appointment_in_db(
         appointment_id,
         session["issuer"],
         session["subject"],
         uuid4(),
     )
 
-    if not deleted:
+    if cancelled is None:
         raise HTTPException(
             status_code=404,
-            detail="Το ραντεβού δεν βρέθηκε.",
+            detail=(
+                "Δεν βρέθηκε ενεργό μελλοντικό ραντεβού "
+                "για ακύρωση."
+            ),
         )
 
-    return Response(status_code=204)
+    return JSONResponse(
+        content={
+            "id": cancelled["id"],
+            "cancelled_at": cancelled["cancelled_at"].isoformat(),
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
 
 @app.get("/availability")
 def get_availability(date: date):

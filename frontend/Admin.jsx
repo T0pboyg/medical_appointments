@@ -51,8 +51,10 @@ export default function Admin() {
                 }
 
                 setCsrfToken(csrfData.csrf_token);
+
                 const response = await fetch("/api/appointments", {
                     signal: controller.signal,
+                    cache: "no-store",
                 });
 
                 if (controller.signal.aborted) {
@@ -90,13 +92,20 @@ export default function Admin() {
     );
 
     function getAppointmentStatus(appointment) {
+        if (appointment.cancelled_at) {
+            return "Ακυρωμένο";
+        }
+
         if (appointment.no_show) {
             return "Δεν προσήλθε";
         }
 
-        const endsAt = new Date(appointment.starts_at).getTime() + 30 * 60 * 1000;
+        const endsAt =
+            new Date(appointment.starts_at).getTime() + 30 * 60 * 1000;
 
-        return Date.now() >= endsAt ? "Ολοκληρωμένο" : "Προγραμματισμένο";
+        return Date.now() >= endsAt
+            ? "Ολοκληρωμένο"
+            : "Προγραμματισμένο";
     }
 
     async function handleAttendanceChange(appointment) {
@@ -108,6 +117,7 @@ export default function Admin() {
             setLoadError("Χρειάζεται ανανέωση της σελίδας ή νέα σύνδεση.");
             return;
         }
+
         setUpdatingId(appointment.id);
         setLoadError("");
 
@@ -151,7 +161,7 @@ export default function Admin() {
         }
     }
 
-    async function handleDelete(appointment) {
+    async function handleCancel(appointment) {
         if (updatingId !== null) {
             return;
         }
@@ -161,9 +171,11 @@ export default function Admin() {
             return;
         }
 
-        if (!window.confirm(
-            `Να διαγραφεί οριστικά το ραντεβού #${appointment.id};`
-        )) {
+        if (
+            !window.confirm(
+                `Να ακυρωθεί το ραντεβού #${appointment.id}; Η ώρα θα ελευθερωθεί.`
+            )
+        ) {
             return;
         }
 
@@ -172,9 +184,9 @@ export default function Admin() {
 
         try {
             const response = await fetch(
-                `/api/appointments/${appointment.id}`,
+                `/api/appointments/${appointment.id}/cancel`,
                 {
-                    method: "DELETE",
+                    method: "POST",
                     headers: {
                         "X-CSRF-Token": csrfToken,
                     },
@@ -186,12 +198,23 @@ export default function Admin() {
             }
 
             if (!response.ok) {
-                setLoadError("Η διαγραφή απέτυχε. Ανανέωσε τη σελίδα και δοκίμασε ξανά.");
+                setLoadError(
+                    "Η ακύρωση απέτυχε. Ανανέωσε τη σελίδα και δοκίμασε ξανά."
+                );
                 return;
             }
 
+            const cancelled = await response.json();
+
             setAppointments((previous) =>
-                previous.filter((item) => item.id !== appointment.id)
+                previous.map((item) =>
+                    item.id === cancelled.id
+                        ? {
+                            ...item,
+                            cancelled_at: cancelled.cancelled_at,
+                        }
+                        : item
+                )
             );
         } catch {
             setLoadError("Δεν ήταν δυνατή η επικοινωνία με τον server.");
@@ -215,7 +238,8 @@ export default function Admin() {
                 return;
             }
 
-            if (handleUnauthorized(response)) {
+            if (!response.ok) {
+                setLoadError("Η αποσύνδεση απέτυχε. Δοκίμασε ξανά.");
                 return;
             }
 
@@ -231,7 +255,12 @@ export default function Admin() {
         <div className="app-container">
             <header>
                 <h1>Διαχείριση ιατρείου</h1>
-                <button type="button" onClick={handleLogout} disabled={needsLogin || !csrfToken}>
+
+                <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={needsLogin || !csrfToken}
+                >
                     Αποσύνδεση
                 </button>
             </header>
@@ -239,8 +268,11 @@ export default function Admin() {
             <main>
                 <section className="card">
                     <h2>Ραντεβού</h2>
+
                     <div className="form-group">
-                        <label htmlFor="admin-search-amka">Αναζήτηση με AMKA</label>
+                        <label htmlFor="admin-search-amka">
+                            Αναζήτηση με AMKA
+                        </label>
                         <input
                             id="admin-search-amka"
                             type="text"
@@ -248,15 +280,20 @@ export default function Admin() {
                             maxLength={11}
                             placeholder="AMKA 11 ψηφίων"
                             value={searchAmka}
-                            onChange={(event) => setSearchAmka(event.target.value)}
+                            onChange={(event) =>
+                                setSearchAmka(event.target.value)
+                            }
                         />
                     </div>
+
                     {loadError && <p role="alert">{loadError}</p>}
+
                     {needsLogin && (
                         <a href="/api/auth/login">
                             Σύνδεση προσωπικού
                         </a>
                     )}
+
                     <div className="table-wrapper">
                         <table>
                             <thead>
@@ -275,35 +312,69 @@ export default function Admin() {
                                         <td>{appointment.id}</td>
                                         <td>{appointment.patient_name}</td>
                                         <td>
-                                            {new Date(appointment.starts_at).toLocaleString("el-GR", {
+                                            {new Date(
+                                                appointment.starts_at
+                                            ).toLocaleString("el-GR", {
                                                 timeZone: "Europe/Athens",
                                                 dateStyle: "short",
                                                 timeStyle: "short",
                                             })}
                                         </td>
-                                        <td>{getAppointmentStatus(appointment)}</td>
+
                                         <td>
-                                            {Date.now() >=
-                                                new Date(appointment.starts_at).getTime() + 30 * 60 * 1000 && (
+                                            {getAppointmentStatus(appointment)}
+                                        </td>
+
+                                        <td>
+                                            {!appointment.cancelled_at &&
+                                                Date.now() >=
+                                                new Date(
+                                                    appointment.starts_at
+                                                ).getTime() +
+                                                30 * 60 * 1000 && (
                                                     <button
                                                         type="button"
-                                                        disabled={updatingId !== null}
-                                                        onClick={() => handleAttendanceChange(appointment)}
+                                                        disabled={
+                                                            updatingId !== null ||
+                                                            !csrfToken
+                                                        }
+                                                        onClick={() =>
+                                                            handleAttendanceChange(
+                                                                appointment
+                                                            )
+                                                        }
                                                     >
-                                                        {updatingId === appointment.id
+                                                        {updatingId ===
+                                                            appointment.id
                                                             ? "Αποθήκευση…"
                                                             : appointment.no_show
                                                                 ? "Επαναφορά σε ολοκληρωμένο"
                                                                 : "Δεν προσήλθε"}
                                                     </button>
                                                 )}
-                                            <button
-                                                type="button"
-                                                disabled={updatingId !== null || !csrfToken}
-                                                onClick={() => handleDelete(appointment)}
-                                            >
-                                                Διαγραφή
-                                            </button>
+
+                                            {!appointment.cancelled_at &&
+                                                new Date(
+                                                    appointment.starts_at
+                                                ).getTime() > Date.now() && (
+                                                    <button
+                                                        type="button"
+                                                        disabled={
+                                                            updatingId !== null ||
+                                                            !csrfToken
+                                                        }
+                                                        onClick={() =>
+                                                            handleCancel(
+                                                                appointment
+                                                            )
+                                                        }
+                                                    >
+                                                        {updatingId ===
+                                                            appointment.id
+                                                            ? "Ακύρωση…"
+                                                            : "Ακύρωση"}
+                                                    </button>
+                                                )}
                                         </td>
                                     </tr>
                                 ))}

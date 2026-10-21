@@ -39,7 +39,8 @@ def get_appointments_from_db():
             cursor.execute(
                 """
                 SELECT id, patient_name, patient_phone, starts_at,
-                       patient_amka AS "patient_AMKA", no_show
+                       patient_amka AS "patient_AMKA", no_show,
+                       cancelled_at
                 FROM appointments
                 ORDER BY id;
                 """
@@ -102,6 +103,7 @@ def get_booked_times_for_date(appointment_date):
                 SELECT starts_at AT TIME ZONE 'Europe/Athens'
                 FROM appointments
                 WHERE (starts_at AT TIME ZONE 'Europe/Athens')::date = %s
+                  AND cancelled_at IS NULL
                 ORDER BY starts_at;
                 """,
                 (appointment_date,),
@@ -124,6 +126,7 @@ def update_appointment_no_show(
                 UPDATE appointments
                 SET no_show = %s
                 WHERE id = %s
+                  AND cancelled_at IS NULL
                   AND starts_at + INTERVAL '30 minutes'
                       <= CURRENT_TIMESTAMP
                 RETURNING id, no_show;
@@ -163,3 +166,56 @@ def update_appointment_no_show(
             )
 
             return updated
+
+
+def cancel_appointment_in_db(
+    appointment_id,
+    actor_issuer,
+    actor_subject,
+    correlation_id,
+):
+    database_url = os.environ["DATABASE_URL"]
+
+    with psycopg.connect(
+        database_url,
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE appointments
+                SET cancelled_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                  AND cancelled_at IS NULL
+                  AND starts_at > CURRENT_TIMESTAMP
+                RETURNING id, cancelled_at;
+                """,
+                (appointment_id,),
+            )
+
+            cancelled = cursor.fetchone()
+
+            if cancelled is None:
+                return None
+
+            cursor.execute(
+                """
+                INSERT INTO audit_events (
+                    actor_issuer,
+                    actor_subject,
+                    action,
+                    appointment_id,
+                    correlation_id
+                )
+                VALUES (%s, %s, %s, %s, %s);
+                """,
+                (
+                    actor_issuer,
+                    actor_subject,
+                    "appointment.cancelled",
+                    appointment_id,
+                    correlation_id,
+                ),
+            )
+
+    return cancelled
