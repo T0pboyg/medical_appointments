@@ -1,0 +1,20 @@
+.medical-assistant-launcher { position: fixed; right: 20px; bottom: 20px; z-index: 100; border: 0; border-radius: 28px; padding: 14px 22px; background: #143d59; color: white; box-shadow: 0 4px 16px #0003; cursor: pointer; }
+.medical-assistant-dialog { box-sizing: border-box; width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 20px; border: 1px solid #bccbd5; border-radius: 16px; color: #172c3c; background: #fff; overflow-y: auto; }
+.medical-assistant-dialog::backdrop { background: #0c1c2a88; }
+.medical-assistant-dialog .medical-assistant-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: none; color: inherit; padding: 0; }
+.medical-assistant-heading h2 { font-size: 1.1rem; margin: 0; }
+.medical-assistant-dialog button { cursor: pointer; padding: 9px 12px; border: 1px solid #a5bac9; border-radius: 8px; }
+.medical-assistant-dialog button:disabled { opacity: .55; cursor: default; }
+.medical-assistant-notice { font-size: .85rem; line-height: 1.5; background: #f0f5f8; padding: 10px; border-radius: 8px; }
+.medical-assistant-messages { height: 230px; overflow-y: auto; overscroll-behavior: contain; padding: 4px; }
+.medical-assistant-message { background: #f0f5f8; padding: 10px 12px; border-radius: 10px; margin: 8px 0; overflow-wrap: anywhere; }
+.medical-assistant-message.user { background: #e2f0fc; }
+.medical-assistant-message p { white-space: pre-wrap; line-height: 1.5; }
+.medical-assistant-message ul { padding-left: 20px; font-size: .85rem; }
+.medical-assistant-message a, .medical-assistant-notice a { color: #144c85; text-decoration: underline; }
+.medical-assistant-form { display: grid; gap: 8px; margin-top: 12px; }
+.medical-assistant-form textarea { box-sizing: border-box; width: 100%; resize: vertical; font: inherit; padding: 8px; }
+.medical-assistant-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.medical-assistant-error { color: #8b1820; }
+.medical-assistant-dialog :focus-visible, .medical-assistant-launcher:focus-visible { outline: 3px solid #267fa4; outline-offset: 3px; }
+@media (max-width: 480px) { .medical-assistant-dialog { padding: 12px; } .medical-assistant-launcher { right: 12px; bottom: 12px; } .medical-assistant-heading { flex-wrap: wrap; } }

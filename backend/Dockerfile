@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 
 COPY *.py .
 COPY migrations/ ./migrations/
+COPY knowledge/ ./knowledge/
 RUN useradd --create-home --uid 10001 appuser
 
 USER appuser

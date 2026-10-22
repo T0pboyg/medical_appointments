@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import Admin from "./Admin.jsx";
+import MedicalAssistant from "./MedicalAssistant.jsx";
 
 function App() {
     const [calendarMonth, setCalendarMonth] = useState(
@@ -369,5 +370,5 @@ if (rootElement) {
     const page =
         window.location.pathname === "/admin" ? <Admin /> : <App />;
 
-    createRoot(rootElement).render(page);
+    createRoot(rootElement).render(<>{page}<MedicalAssistant /></>);
 }

@@ -28,6 +28,7 @@ from fastapi.responses import JSONResponse
 from security_headers import SecurityHeadersMiddleware
 from database import get_active_blocks_for_date
 from availability_blocks import router as availability_blocks_router
+from medical_assistant import router as medical_assistant_router
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
@@ -35,6 +36,7 @@ app.add_middleware(RequestBodyLimitMiddleware, max_bytes=16 * 1024)
 app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(auth_router)
 app.include_router(availability_blocks_router)
+app.include_router(medical_assistant_router)
 
 @app.exception_handler(RequestValidationError)
 async def handle_validation_error(
