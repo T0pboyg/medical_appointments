@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import AvailabilityBlocks from "./AvailabilityBlocks.jsx";
+import "./Admin.css";
 
 export default function Admin() {
     const [appointments, setAppointments] = useState([]);
@@ -253,9 +254,9 @@ export default function Admin() {
     }
 
     return (
-        <div className="app-container">
-            <header>
-                <h1>Διαχείριση ιατρείου</h1>
+        <div className="app-container admin-app">
+            <header className="admin-topbar">
+                <a className="admin-brand" href="/admin"><span className="admin-brand-mark" aria-hidden="true">+</span> ιατρείο<span className="admin-brand-caption">ΠΕΡΙΒΑΛΛΟΝ ΠΡΟΣΩΠΙΚΟΥ</span></a>
 
                 <button
                     type="button"
@@ -266,20 +267,20 @@ export default function Admin() {
                 </button>
             </header>
 
-            <main>
+            <main><div className="admin-page-heading"><p className="admin-eyebrow">ΟΡΓΑΝΩΣΗ ΙΑΤΡΕΙΟΥ</p><h1>Τα ραντεβού σας</h1><p className="admin-subtitle">Όλες οι επισκέψεις σε μία καθαρή, συγκεντρωμένη προβολή.</p></div>
                 <section className="card">
-                    <h2>Ραντεβού</h2>
+                    <h2>Ραντεβού</h2><p className="admin-section-note">Ημερομηνίες και ώρες Ελλάδας</p>
 
                     <div className="form-group">
                         <label htmlFor="admin-search-amka">
-                            Αναζήτηση με AMKA
+                            Αναζήτηση με ΑΜΚΑ
                         </label>
                         <input
                             id="admin-search-amka"
                             type="text"
                             inputMode="numeric"
                             maxLength={11}
-                            placeholder="AMKA 11 ψηφίων"
+                            placeholder="Πληκτρολόγησε τα 11 ψηφία του ΑΜΚΑ"
                             value={searchAmka}
                             onChange={(event) =>
                                 setSearchAmka(event.target.value)
@@ -295,38 +296,16 @@ export default function Admin() {
                         </a>
                     )}
 
-                    <div className="table-wrapper">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th scope="col">Αριθμός</th>
-                                    <th scope="col">Ασθενής</th>
-                                    <th scope="col">Ημερομηνία και ώρα</th>
-                                    <th scope="col">Κατάσταση</th>
-                                    <th scope="col">Ενέργεια</th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {filteredAppointments.map((appointment) => (
-                                    <tr key={appointment.id}>
-                                        <td>{appointment.id}</td>
-                                        <td>{appointment.patient_name}</td>
-                                        <td>
-                                            {new Date(
-                                                appointment.starts_at
-                                            ).toLocaleString("el-GR", {
-                                                timeZone: "Europe/Athens",
-                                                dateStyle: "short",
-                                                timeStyle: "short",
-                                            })}
-                                        </td>
-
-                                        <td>
-                                            {getAppointmentStatus(appointment)}
-                                        </td>
-
-                                        <td>
+                    <div className="appointment-list" aria-label="Λίστα ραντεβού">
+                        {filteredAppointments.map((appointment) => (
+                            <article className="appointment-card" key={appointment.id} aria-label={`Ραντεβού ${appointment.id}`}>
+                                <div className="appointment-card-heading"><span>Ραντεβού #{appointment.id}</span><span className="status-badge" data-status={getAppointmentStatus(appointment)}>{getAppointmentStatus(appointment)}</span></div>
+                                <dl className="appointment-details">
+                                    <div><dt>Ημερομηνία</dt><dd>{new Date(appointment.starts_at).toLocaleDateString("el-GR", {timeZone: "Europe/Athens", day: "2-digit", month: "2-digit", year: "numeric"})}</dd></div>
+                                    <div><dt>Ώρα</dt><dd className="appointment-time">{new Date(appointment.starts_at).toLocaleTimeString("el-GR", {timeZone: "Europe/Athens", hour: "2-digit", minute: "2-digit"})}</dd></div>
+                                    <div className="appointment-patient"><dt>Ασθενής</dt><dd>{appointment.patient_name}</dd><span className="appointment-reference">Ραντεβού #{appointment.id}</span></div>
+                                </dl>
+                                <div className="appointment-actions">
                                             {!appointment.cancelled_at &&
                                                 Date.now() >=
                                                 new Date(
@@ -373,21 +352,18 @@ export default function Admin() {
                                                         {updatingId ===
                                                             appointment.id
                                                             ? "Ακύρωση…"
-                                                            : "Ακύρωση"}
+                                                            : "Ακύρωση ραντεβού"}
                                                     </button>
                                                 )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+
+                                </div>
+                            </article>
+                        ))}
+                        {csrfToken && !loadError && filteredAppointments.length === 0 && <p className="admin-empty" role="status">{searchAmka ? "Δεν βρέθηκαν ραντεβού με αυτό το ΑΜΚΑ." : "Δεν υπάρχουν καταχωρισμένα ραντεβού."}</p>}
                     </div>
                 </section>
                 {csrfToken && !needsLogin && (
-                    <AvailabilityBlocks
-                        csrfToken={csrfToken}
-                        onUnauthorized={handleUnauthorized}
-                    />
+                    <details className="admin-blocks-panel"><summary><span><strong>Μπλοκάρισμα ωρών</strong><span className="admin-blocks-hint">Διαχείριση άδειας ή μη διαθέσιμων διαστημάτων</span></span><span className="admin-expand-label">Άνοιγμα / κλείσιμο</span></summary><AvailabilityBlocks csrfToken={csrfToken} onUnauthorized={handleUnauthorized} /></details>
                 )}
             </main>
         </div>

@@ -185,7 +185,7 @@ export default function AvailabilityBlocks({
 
     return (
         <section className="card">
-            <h2>Αποκλεισμοί διαθεσιμότητας</h2>
+            <h2>Μη διαθέσιμες ώρες</h2>
             <p>Οι ημερομηνίες και ώρες εμφανίζονται στην ώρα Ελλάδας.</p>
 
             <form onSubmit={handleCreate}>
@@ -197,7 +197,7 @@ export default function AvailabilityBlocks({
                         !csrfToken
                     }
                 >
-                    <legend>Νέος αποκλεισμός</legend>
+                    <legend>Επιλογή διαστήματος</legend>
 
                     <div className="form-group">
                         <label htmlFor="block-date">Ημερομηνία</label>
@@ -273,7 +273,7 @@ export default function AvailabilityBlocks({
                     </div>
 
                     <button type="submit">
-                        {creating ? "Αποθήκευση…" : "Δημιουργία αποκλεισμού"}
+                        {creating ? "Αποθήκευση…" : "Μπλοκάρισμα διαστήματος"}
                     </button>
                 </fieldset>
             </form>
