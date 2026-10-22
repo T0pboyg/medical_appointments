@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from fastapi import HTTPException
 from database import get_appointments_from_db,create_appointment_in_db
 from zoneinfo import ZoneInfo
-from psycopg.errors import UniqueViolation
+from psycopg.errors import UniqueViolation, CheckViolation
 from fastapi import Response
 from database import cancel_appointment_in_db
 from database import get_booked_times_for_date
@@ -26,12 +26,15 @@ from uuid import uuid4
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from security_headers import SecurityHeadersMiddleware
+from database import get_active_blocks_for_date
+from availability_blocks import router as availability_blocks_router
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
 app.add_middleware(RequestBodyLimitMiddleware, max_bytes=16 * 1024)
 app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(auth_router)
+app.include_router(availability_blocks_router)
 
 @app.exception_handler(RequestValidationError)
 async def handle_validation_error(
@@ -185,6 +188,12 @@ def create_appointment(
             detail="Η συγκεκριμένη ώρα έχει ήδη κρατηθεί."
         ) from None
 
+    except CheckViolation:
+        raise HTTPException(
+            status_code=409,
+            detail="Το επιλεγμένο διάστημα δεν είναι διαθέσιμο.",
+        ) from None
+
 
 
 @app.post("/appointments/{appointment_id}/cancel")
@@ -226,15 +235,31 @@ def get_availability(date: date):
         return []
 
     booked_times = get_booked_times_for_date(date)
-    opening = datetime.combine(date, time(9, 0), tzinfo=clinic_timezone)
+    blocks = get_active_blocks_for_date(date)
 
+    opening = datetime.combine(
+        date,
+        time(9, 0),
+        tzinfo=clinic_timezone,
+    )
     available_times = []
 
     for index in range(16):
         slot = opening + timedelta(minutes=index * 30)
+        slot_end = slot + timedelta(minutes=30)
         slot_label = slot.strftime("%H:%M")
 
-        if slot > now and slot_label not in booked_times:
+        overlaps_block = any(
+            slot < block["ends_at"]
+            and slot_end > block["starts_at"]
+            for block in blocks
+        )
+
+        if (
+            slot > now
+            and slot_label not in booked_times
+            and not overlaps_block
+        ):
             available_times.append(slot_label)
 
     return available_times

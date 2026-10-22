@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import AvailabilityBlocks from "./AvailabilityBlocks.jsx";
 
 export default function Admin() {
     const [appointments, setAppointments] = useState([]);
@@ -382,6 +383,12 @@ export default function Admin() {
                         </table>
                     </div>
                 </section>
+                {csrfToken && !needsLogin && (
+                    <AvailabilityBlocks
+                        csrfToken={csrfToken}
+                        onUnauthorized={handleUnauthorized}
+                    />
+                )}
             </main>
         </div>
     );

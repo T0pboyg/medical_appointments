@@ -16,19 +16,51 @@ def create_appointment_in_db(
 ):
     database_url = os.environ["DATABASE_URL"]
 
-    with psycopg.connect(database_url, row_factory=dict_row) as connection:
+    with psycopg.connect(
+        database_url,
+        row_factory=dict_row,
+    ) as connection:
         with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT pg_advisory_xact_lock(742019002);"
+            )
+
+            cursor.execute(
+                """
+                SELECT id
+                FROM availability_blocks
+                WHERE released_at IS NULL
+                  AND starts_at < %s + INTERVAL '30 minutes'
+                  AND ends_at > %s
+                LIMIT 1;
+                """,
+                (starts_at, starts_at),
+            )
+
+            if cursor.fetchone() is not None:
+                raise psycopg.errors.CheckViolation(
+                    "Booking overlaps an availability block."
+                )
+
             cursor.execute(
                 """
                 INSERT INTO appointments (
-                    patient_name, patient_phone, patient_amka, starts_at
+                    patient_name, patient_phone,
+                    patient_amka, starts_at
                 )
                 VALUES (%s, %s, %s, %s)
                 RETURNING id, patient_name, patient_phone,
-                          patient_amka AS "patient_AMKA", starts_at;
+                          patient_amka AS "patient_AMKA",
+                          starts_at;
                 """,
-                (patient_name, patient_phone, patient_amka, starts_at),
+                (
+                    patient_name,
+                    patient_phone,
+                    patient_amka,
+                    starts_at,
+                ),
             )
+
             return cursor.fetchone()
 
 def get_appointments_from_db():
@@ -219,3 +251,196 @@ def cancel_appointment_in_db(
             )
 
     return cancelled
+
+
+def create_availability_block(
+    starts_at,
+    ends_at,
+    reason,
+    actor_issuer,
+    actor_subject,
+    correlation_id,
+):
+    database_url = os.environ["DATABASE_URL"]
+
+    with psycopg.connect(
+        database_url,
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT pg_advisory_xact_lock(742019002);"
+            )
+
+            cursor.execute(
+                """
+                SELECT id
+                FROM appointments
+                WHERE cancelled_at IS NULL
+                  AND starts_at < %s
+                  AND starts_at + INTERVAL '30 minutes' > %s
+                LIMIT 1;
+                """,
+                (ends_at, starts_at),
+            )
+
+            if cursor.fetchone() is not None:
+                return None
+
+            cursor.execute(
+                """
+                SELECT id
+                FROM availability_blocks
+                WHERE released_at IS NULL
+                  AND starts_at < %s
+                  AND ends_at > %s
+                LIMIT 1;
+                """,
+                (ends_at, starts_at),
+            )
+
+            if cursor.fetchone() is not None:
+                return None
+
+            cursor.execute(
+                """
+                INSERT INTO availability_blocks (
+                    starts_at, ends_at, reason
+                )
+                VALUES (%s, %s, %s)
+                RETURNING id, starts_at, ends_at, reason,
+                          created_at, released_at;
+                """,
+                (starts_at, ends_at, reason),
+            )
+            block = cursor.fetchone()
+
+            cursor.execute(
+                """
+                INSERT INTO audit_events (
+                    actor_issuer,
+                    actor_subject,
+                    action,
+                    availability_block_id,
+                    correlation_id
+                )
+                VALUES (%s, %s, %s, %s, %s);
+                """,
+                (
+                    actor_issuer,
+                    actor_subject,
+                    "availability_block.created",
+                    block["id"],
+                    correlation_id,
+                ),
+            )
+
+    return block
+
+
+def get_active_blocks_for_date(appointment_date):
+    database_url = os.environ["DATABASE_URL"]
+
+    with psycopg.connect(
+        database_url,
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT starts_at, ends_at
+                FROM availability_blocks
+                WHERE released_at IS NULL
+                  AND starts_at < (
+                      (%s::date + 1)::timestamp
+                      AT TIME ZONE 'Europe/Athens'
+                  )
+                  AND ends_at > (
+                      %s::date::timestamp
+                      AT TIME ZONE 'Europe/Athens'
+                  )
+                ORDER BY starts_at;
+                """,
+                (appointment_date, appointment_date),
+            )
+
+            return cursor.fetchall()
+
+
+def release_availability_block(
+    block_id,
+    actor_issuer,
+    actor_subject,
+    correlation_id,
+):
+    database_url = os.environ["DATABASE_URL"]
+
+    with psycopg.connect(
+        database_url,
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT pg_advisory_xact_lock(742019002);"
+            )
+
+            cursor.execute(
+                """
+                UPDATE availability_blocks
+                SET released_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                  AND released_at IS NULL
+                RETURNING id, starts_at, ends_at, reason,
+                          created_at, released_at;
+                """,
+                (block_id,),
+            )
+
+            released = cursor.fetchone()
+
+            if released is None:
+                return None
+
+            cursor.execute(
+                """
+                INSERT INTO audit_events (
+                    actor_issuer,
+                    actor_subject,
+                    action,
+                    availability_block_id,
+                    correlation_id
+                )
+                VALUES (%s, %s, %s, %s, %s);
+                """,
+                (
+                    actor_issuer,
+                    actor_subject,
+                    "availability_block.released",
+                    block_id,
+                    correlation_id,
+                ),
+            )
+
+    return released
+
+
+def get_availability_blocks():
+    database_url = os.environ["DATABASE_URL"]
+
+    with psycopg.connect(
+        database_url,
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, starts_at, ends_at, reason,
+                       created_at, released_at
+                FROM availability_blocks
+                WHERE released_at IS NULL
+                  AND ends_at > CURRENT_TIMESTAMP
+                ORDER BY starts_at, id;
+                """
+            )
+
+            return cursor.fetchall()

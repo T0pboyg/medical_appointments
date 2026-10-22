@@ -17,3 +17,15 @@ TO appointments_app;
 GRANT USAGE
 ON SEQUENCE audit_events_id_seq
 TO appointments_app;
+
+GRANT SELECT, INSERT
+ON TABLE availability_blocks
+TO appointments_app;
+
+GRANT UPDATE (released_at)
+ON TABLE availability_blocks
+TO appointments_app;
+
+GRANT USAGE
+ON SEQUENCE availability_blocks_id_seq
+TO appointments_app;
