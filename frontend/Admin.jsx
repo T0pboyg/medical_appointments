@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import AvailabilityBlocks from "./AvailabilityBlocks.jsx";
 import "./Admin.css";
+import { matchesAppointmentFilters } from "./appointmentFilters.js";
 
 export default function Admin() {
     const [appointments, setAppointments] = useState([]);
     const [loadError, setLoadError] = useState("");
     const [searchAmka, setSearchAmka] = useState("");
+    const [searchDate, setSearchDate] = useState("");
     const [updatingId, setUpdatingId] = useState(null);
     const [csrfToken, setCsrfToken] = useState("");
     const [needsLogin, setNeedsLogin] = useState(false);
@@ -17,6 +19,7 @@ export default function Admin() {
 
         setAppointments([]);
         setSearchAmka("");
+        setSearchDate("");
         setCsrfToken("");
         setNeedsLogin(true);
         setLoadError("Η σύνδεση δεν είναι πλέον ενεργή. Συνδέσου ξανά.");
@@ -90,7 +93,7 @@ export default function Admin() {
 
     const filteredAppointments = appointments.filter(
         (appointment) =>
-            searchAmka === "" || appointment.patient_AMKA === searchAmka
+            matchesAppointmentFilters(appointment, searchAmka, searchDate)
     );
 
     function getAppointmentStatus(appointment) {
@@ -271,7 +274,8 @@ export default function Admin() {
                 <section className="card">
                     <h2>Ραντεβού</h2><p className="admin-section-note">Ημερομηνίες και ώρες Ελλάδας</p>
 
-                    <div className="form-group">
+                    <div className="admin-filters" role="search" aria-label="Αναζήτηση ραντεβού">
+                        <div className="form-group">
                         <label htmlFor="admin-search-amka">
                             Αναζήτηση με ΑΜΚΑ
                         </label>
@@ -287,6 +291,14 @@ export default function Admin() {
                             }
                         />
                     </div>
+                        <div className="form-group">
+                            <label htmlFor="admin-search-date">Ημερομηνία ραντεβού</label>
+                            <input id="admin-search-date" type="date" value={searchDate}
+                                onChange={(event) => setSearchDate(event.target.value)} />
+                        </div>
+                        {(searchAmka || searchDate) && <button className="admin-clear-filters" type="button" onClick={() => {setSearchAmka("");setSearchDate("");}}>Καθαρισμός φίλτρων</button>}
+                    </div>
+                    <p className="admin-filter-hint">Αναζήτηση με ΑΜΚΑ, ημερομηνία ή και τα δύο μαζί.</p>
 
                     {loadError && <p role="alert">{loadError}</p>}
 
@@ -359,7 +371,7 @@ export default function Admin() {
                                 </div>
                             </article>
                         ))}
-                        {csrfToken && !loadError && filteredAppointments.length === 0 && <p className="admin-empty" role="status">{searchAmka ? "Δεν βρέθηκαν ραντεβού με αυτό το ΑΜΚΑ." : "Δεν υπάρχουν καταχωρισμένα ραντεβού."}</p>}
+                        {csrfToken && !loadError && filteredAppointments.length === 0 && <p className="admin-empty" role="status">{searchAmka || searchDate ? "Δεν βρέθηκαν ραντεβού με τα επιλεγμένα φίλτρα." : "Δεν υπάρχουν καταχωρισμένα ραντεβού."}</p>}
                     </div>
                 </section>
                 {csrfToken && !needsLogin && (
