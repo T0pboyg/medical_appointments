@@ -7,7 +7,7 @@ import os
 import re
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import uuid4
 
@@ -22,7 +22,7 @@ from assistant_service import AssistantBusy, AssistantUnavailable
 from auth import require_staff_change
 from availability_service import CLINIC_TIMEZONE, get_available_slots
 from database import find_staff_appointments, cancel_appointment_in_db
-from staff_assistant_intent import extract_intent, resolve_day
+from staff_assistant_intent import extract_intent, resolve_day, resolve_period
 
 router = APIRouter(prefix='/staff-assistant', tags=['staff-assistant'])
 _attempts = {}
@@ -73,7 +73,7 @@ def read_preview(token, session, *, timestamp=None):
 def prepare_response(message, intent, session, *, now=None):
     query = normalize(message)
     action = intent['action']
-    help_text = ('Μπορώ να δείξω ραντεβού ή ελεύθερες ώρες μιας ημέρας και να ετοιμάσω ακύρωση ενός ραντεβού. '
+    help_text = ('Μπορώ να δείξω ραντεβού ή ελεύθερες ώρες μιας ημέρας ή εβδομάδας και να ετοιμάσω ακύρωση ενός ραντεβού. '
                  'Δοκίμασε «Δείξε τα ραντεβού αύριο» ή «Ακύρωσε το ραντεβού στις 07/01/2030 του ΟΝΟΜΑ». '
                  'Κάθε ακύρωση χρειάζεται ξεχωριστή επιβεβαίωση.')
     reply = lambda text: {'answer': text, 'appointments': []}
@@ -90,7 +90,10 @@ def prepare_response(message, intent, session, *, now=None):
         return reply('Δεν μπόρεσα να αναγνωρίσω με βεβαιότητα το όνομα. Γράψε την ημερομηνία και το όνομα όπως εμφανίζεται στο admin.')
     if appointment_id and not re.search(rf'(?:#\s*|ραντεβου\s+){appointment_id}\b', query):
         return reply('Χρειάζομαι σαφή αριθμό ραντεβού, όπως #42, ή πλήρη ημερομηνία και όνομα.')
-    day = resolve_day(message, now=now)
+    period = resolve_period(message, now=now)
+    day = period[0] if period else None
+    if action == 'cancel' and period and period[0] != period[1]:
+        return reply('Για ακύρωση χρειάζομαι μία συγκεκριμένη ημέρα και όνομα ή αριθμό ραντεβού (#ID). Μπορείς πρώτα να ζητήσεις τα ραντεβού της εβδομάδας. Δεν έγινε αλλαγή.')
     date_hint = bool(re.search(r'\d[/\-]\d|\b(?:σημερα|αυριο|μεθαυριο|χθεσ|δευτερ\w*|τριτη\w*|τεταρτ\w*|πεμπτ\w*|παρασκευ\w*|σαββατ\w*|κυριακ\w*|εβδομαδ\w*)\b', query))
     without_id = re.sub(rf'(?:#\s*|ραντεβου\s+){appointment_id}\b', '', query) if appointment_id else query
     date_hint = date_hint or bool(re.search(r'\d', without_id)) or any(term in query for term in (
@@ -100,20 +103,30 @@ def prepare_response(message, intent, session, *, now=None):
         return reply('Ποια ακριβώς ημέρα εννοείς; Γράψε πλήρη ημερομηνία π.χ. 07/01/2030, «αύριο» ή μία συγκεκριμένη ημέρα της εβδομάδας. Δεν έγινε καμία αλλαγή.')
     if action == 'cancel' and (not any(word.startswith('ακυρ') for word in query.split()) or not (name or appointment_id)):
         return reply('Για ακύρωση χρειάζομαι συγκεκριμένο όνομα και ημέρα ή αριθμό ραντεβού (#ID). Δεν κάνω μαζικές ακυρώσεις.')
+    days = [day + timedelta(days=i) for i in range((period[1] - day).days + 1)] if period else [None]
+    label = day.strftime('%d/%m/%Y') if day else f'#{appointment_id}'
+    if len(days) > 1:
+        label += ' – ' + days[-1].strftime('%d/%m/%Y')
     if action == 'availability':
-        slots = get_available_slots(day, now=now)
-        text = ', '.join(slots) if slots else 'Δεν υπάρχουν διαθέσιμες ώρες.'
-        return reply(f'Ελεύθερες ώρες για {day.strftime("%d/%m/%Y")} (ώρα Ελλάδας): {text} Δεν έχουν δεσμευτεί.')
-    rows = find_staff_appointments(day=day, appointment_id=appointment_id, future_only=action == 'cancel')
+        lines = []
+        for current in days:
+            slots = get_available_slots(current, now=now)
+            text = ', '.join(slots) if slots else 'Δεν υπάρχουν διαθέσιμες ώρες.'
+            lines.append(f'{current.strftime("%d/%m/%Y")}: {text}')
+        return reply(f'Ελεύθερες ώρες για {label} (ώρα Ελλάδας):\n' + '\n'.join(lines) + '\nΔεν έχουν δεσμευτεί.')
+    rows = []
+    for current in days:
+        rows.extend(find_staff_appointments(day=current, appointment_id=appointment_id, future_only=action == 'cancel'))
+        if len(rows) > 200:
+            break
     if len(rows) > 200:
         return reply('Η αναζήτηση ξεπερνά το όριο αποτελεσμάτων. Χρησιμοποίησε συγκεκριμένο αριθμό ραντεβού (#ID).')
     if name:
         rows = [row for row in rows if normalize(name) in normalize(row['patient_name'])]
-    if len(rows) > 20:
+    if action == 'cancel' and len(rows) > 20:
         return reply('Βρέθηκαν πολλά ραντεβού. Δώσε πιο συγκεκριμένο όνομα ή αριθμό ραντεβού για να περιορίσουμε την αναζήτηση.')
     records = [{'id': row['id'], 'patient_name': row['patient_name'], 'starts_at': row['starts_at'].isoformat(),
                 **({'confirmation_token': make_preview(row, session)} if action == 'cancel' else {})} for row in rows]
-    label = day.strftime('%d/%m/%Y') if day else f'#{appointment_id}'
     if not rows:
         return reply(f'Δεν βρήκα ενεργό ραντεβού για {label} με αυτά τα στοιχεία. Δοκίμασε το όνομα όπως είναι καταχωρισμένο ή τον αριθμό ραντεβού.')
     return {'answer': f'Βρήκα {len(rows)} ραντεβού για {label} (ώρα Ελλάδας). ' + (
