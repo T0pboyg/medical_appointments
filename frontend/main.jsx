@@ -173,17 +173,12 @@ function App() {
                 <a className="brand" href="/" aria-label="Αρχική"><span className="brand-mark" aria-hidden="true">+</span><span>ιατρείο<span className="brand-dot">.</span></span></a>
                 <span className="header-note"><span className="status-dot" /> Online ραντεβού</span>
             </header>
+            <section className="booking-hero" aria-labelledby="booking-title">
+                <h1 id="booking-title">Η φροντίδα σου ξεκινά<br /><em>με ένα ραντεβού.</em></h1>
+                <p>Επίλεξε ημέρα και ώρα για την επίσκεψή σου.</p>
+            </section>
             <div className="booking-layout">
-                <aside className="intro-panel">
-                    <h1>Η υγεία σου.<br />Ο χρόνος σου.<br /><em>Το ραντεβού σου.</em></h1>
-                    <p className="intro-copy">Διάλεξε ημέρα και ώρα.</p>
-                    <div className="care-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="art-cross">+</div></div>
-                    <div className="appointment-summary" aria-live="polite">
-                        <span className="eyebrow">Η ΕΠΙΛΟΓΗ ΣΟΥ</span>
-                        <strong>{selectedDate ? new Date(`${selectedDate}T12:00:00`).toLocaleDateString("el-GR", { weekday: "long", day: "numeric", month: "long" }) : "Επίλεξε ημέρα"}</strong>
-                        <span>{selectedTime ? `Ώρα επίσκεψης · ${selectedTime}` : selectedDate ? "Διάλεξε μία από τις διαθέσιμες ώρες." : "Επίλεξε ημέρα από το ημερολόγιο."}</span>
-                    </div>
-                </aside>
+
 
             <main>
                 <section className="card" aria-labelledby="create-heading">
@@ -344,6 +339,12 @@ function App() {
                                 </div>
                             )}
                         </div>
+
+                        <div className="appointment-summary" aria-live="polite">
+                        <span className="eyebrow">Η ΕΠΙΛΟΓΗ ΣΟΥ</span>
+                        <strong>{selectedDate ? new Date(`${selectedDate}T12:00:00`).toLocaleDateString("el-GR", { weekday: "long", day: "numeric", month: "long" }) : "Επίλεξε ημέρα"}</strong>
+                        <span>{selectedTime ? `Ώρα επίσκεψης · ${selectedTime}` : selectedDate ? "Διάλεξε μία από τις διαθέσιμες ώρες." : "Επίλεξε ημέρα από το ημερολόγιο."}</span>
+                    </div>
 
                         <button
                             type="submit"

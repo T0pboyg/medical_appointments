@@ -5,9 +5,9 @@
     sans-serif;
   color: #172f45;
   background: #f3f6f8;
-  --primary:#12665c;
-  --primary-hover:#0b5149;
-  --border:#d9e3e6;
+  --primary:#2275b5;
+  --primary-hover:#185c94;
+  --border:#dbe7f1;
   font-synthesis: none;
 }
 * {
@@ -34,7 +34,7 @@ a {
 }
 button:focus-visible,
 a:focus-visible {
-  outline: 3px solid #249e8b;
+  outline: 3px solid #398bc9;
   outline-offset: 4px;
 }
 input,
@@ -43,14 +43,14 @@ select {
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #fbfcfc;
+  background: #ffffff;
   color: #172f45;
   width: 100%;
 }
 input:focus,
 select:focus {
-  outline: 3px solid #c6e8df;
-  border-color: #12665c;
+  outline: 3px solid #d7ebfc;
+  border-color: #2275b5;
 }
 input::placeholder {
   color: #7a8995;
@@ -72,7 +72,7 @@ form {
 }
 .card {
   background: white;
-  border: 1px solid #dce5e8;
+  border: 1px solid #dce8f3;
   border-radius: 24px;
   padding: 32px;
 }
@@ -102,10 +102,10 @@ td {
   text-align: left;
 }
 th {
-  background: #edf5f3;
+  background: #edf6ff;
 }
 tbody tr:hover {
-  background: #f5faf9;
+  background: #f5faff;
 }
 .btn-submit {
   border: 0;
@@ -124,7 +124,7 @@ tbody tr:hover {
 #message {
   margin: 16px 0 0;
   padding: 14px 16px;
-  background: #edf5f3;
+  background: #edf6ff;
   border-radius: 12px;
   line-height: 1.6;
 }
@@ -143,9 +143,9 @@ body:has(.booking-app) {
   background:
     radial-gradient(
       ellipse at 4% 10%,
-      #deeee8 0,
+      #e6f3ff 0,
       transparent 42%),
-    #f4f6f5;
+    #ffffff;
 }
 .booking-app {
   max-width: 1280px;
@@ -172,28 +172,28 @@ body:has(.booking-app) {
   width: 38px;
   height: 38px;
   color: white;
-  background: #173e45;
+  background: #247cb9;
   border-radius: 12px;
   font-size: 30px;
   line-height: 1;
   font-weight: 400;
 }
 .brand-dot {
-  color: #168271;
+  color: #3085c4;
 }
 .header-note {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #48645e;
+  color: #52718b;
   font-size: .75rem;
 }
 .status-dot {
   height: 7px;
   width: 7px;
   border-radius: 50%;
-  background: #168271;
-  box-shadow: 0 0 0 4px #e0ede7;
+  background: #3085c4;
+  box-shadow: 0 0 0 4px #e5f2fc;
 }
 .booking-layout {
   display: grid;
@@ -211,7 +211,7 @@ body:has(.booking-app) {
   font-size: .62rem;
   font-weight: 700;
   letter-spacing: .15em;
-  color: #54746d;
+  color: #52718b;
 }
 .intro-panel h1 {
   font-size: clamp(2.6rem, 4.3vw, 4.25rem);
@@ -222,7 +222,7 @@ body:has(.booking-app) {
 }
 .intro-panel h1 em {
   font-style: normal;
-  color: #12665c;
+  color: #2275b5;
 }
 .intro-copy {
   max-width: 350px;
@@ -230,56 +230,9 @@ body:has(.booking-app) {
   line-height: 1.9;
   color: #657480;
 }
-.care-art {
-  position: relative;
-  height: 230px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  margin: 22px 0;
-}
-.orbit {
-  position: absolute;
-  width: 230px;
-  height: 170px;
-  border: 1px solid #b8d3c8;
-  border-radius: 50%;
-  transform: rotate(-32deg);
-}
-.orbit-two {
-  transform: rotate(35deg);
-  width: 275px;
-  height: 130px;
-}
-.art-cross {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 115px;
-  height: 115px;
-  border-radius: 35px;
-  transform: rotate(-12deg);
-  background:
-    linear-gradient(
-      135deg,
-      #cee8db,
-      #88b8a5);
-  box-shadow: 18px 24px 35px #173e4514, inset 0 1px 2px #ffffffaa;
-  color: #fff;
-  font-size: 100px;
-  font-weight: 400;
-  line-height: 1;
-}
-.art-caption {
-  position: absolute;
-  bottom: 0;
-  font-size: .65rem;
-  letter-spacing: .05em;
-  color: #678279;
-}
 .appointment-summary {
   padding: 22px 0;
-  border-top: 1px solid #cfdfd8;
+  border-top: 1px solid #d9e8f5;
   display: grid;
   gap: 11px;
 }
@@ -298,8 +251,8 @@ body:has(.booking-app) {
 .booking-app .card {
   padding: 34px 36px;
   border-radius: 26px;
-  border-color: #e1e8e5;
-  box-shadow: 0 20px 70px #193d3510;
+  border-color: #dce8f3;
+  box-shadow: 0 20px 70px #235b8b0c;
 }
 .card-heading h2 {
   font-size: 1.65rem;
@@ -318,7 +271,7 @@ body:has(.booking-app) {
   padding: 0;
   margin: 26px 0;
   list-style: none;
-  border-block: 1px solid #edf0ef;
+  border-block: 1px solid #edf3fa;
 }
 .booking-steps li {
   flex: 1;
@@ -326,12 +279,12 @@ body:has(.booking-app) {
   align-items: center;
   gap: 7px;
   padding: 15px 0;
-  color: #85938e;
+  color: #718298;
   font-size: .7rem;
 }
 .booking-steps li span {
   font-size: .65rem;
-  border: 1px solid #e1e8e5;
+  border: 1px solid #dce8f3;
   border-radius: 50%;
   width: 24px;
   height: 24px;
@@ -339,11 +292,11 @@ body:has(.booking-app) {
   place-items: center;
 }
 .booking-steps li.active {
-  color: #12665c;
+  color: #2275b5;
 }
 .booking-steps li.active span {
-  background: #e5f3ed;
-  border-color: #cee4da;
+  background: #e5f2ff;
+  border-color: #c6dff4;
 }
 .booking-app form {
   grid-template-columns: 1fr 1fr;
@@ -366,13 +319,13 @@ body:has(.booking-app) {
 .section-label span {
   font-size: .62rem;
   font-weight: 400;
-  color: #74857d;
+  color: #61758a;
 }
 .calendar-container {
   padding: 16px;
-  border: 1px solid #e3eae6;
+  border: 1px solid #dce8f3;
   border-radius: 16px;
-  background: #fafcfb;
+  background: #f8fbff;
 }
 .calendar-header {
   display: flex;
@@ -384,13 +337,13 @@ body:has(.booking-app) {
 .calendar-header button {
   width: 33px;
   height: 33px;
-  border: 1px solid #dfe8e2;
+  border: 1px solid #d8e7f4;
   border-radius: 10px;
   background: #fff;
-  color: #12665c;
+  color: #2275b5;
 }
 .calendar-header button:hover {
-  background: #e8f3ed;
+  background: #e7f2fd;
 }
 #month-year-display {
   text-transform: capitalize;
@@ -405,7 +358,7 @@ body:has(.booking-app) {
 }
 .calendar-grid > span {
   font-size: .65rem;
-  color: #7a8d83;
+  color: #657d93;
   padding: 6px 0;
 }
 .calendar-day {
@@ -420,23 +373,23 @@ body:has(.booking-app) {
   transition: background .15s, transform .15s;
 }
 .calendar-day.available {
-  background: #edf5f0;
-  color: #285d4b;
+  background: #edf6ff;
+  color: #245c88;
 }
 .calendar-day.available:hover {
-  background: #d4e9dc;
+  background: #d8ebfc;
   transform: translateY(-2px);
-  border-color: #b2cfbd;
+  border-color: #b1d3ef;
 }
 .calendar-day.selected {
-  background: #12665c;
+  background: #2275b5;
   color: white;
-  box-shadow: 0 4px 10px #12665c22;
+  box-shadow: 0 4px 10px #2275b522;
   font-weight: 700;
 }
 .calendar-day.disabled {
   background: transparent;
-  color: #9aa8a0;
+  color: #8496a7;
   opacity: .65;
 }
 .time-wrapper {
@@ -462,25 +415,25 @@ body:has(.booking-app) {
 .time-chip {
   min-height: 40px;
   padding: 8px;
-  border: 1px solid #dce8e0;
+  border: 1px solid #d3e4f3;
   border-radius: 10px;
   background: white;
-  color: #285d4b;
+  color: #245c88;
   font-size: .78rem;
   transition: background .15s, transform .15s;
 }
 .time-chip:hover {
-  background: #e6f2eb;
+  background: #e5f2ff;
   transform: translateY(-1px);
 }
 .time-chip.selected {
-  background: #12665c;
+  background: #2275b5;
   color: white;
-  border-color: #12665c;
+  border-color: #2275b5;
 }
 .form-footnote {
   font-size: .65rem;
-  color: #77877f;
+  color: #657d93;
   text-align: center;
   line-height: 1.7;
   margin: 16px 0 0;
@@ -491,8 +444,8 @@ body:has(.booking-app) {
   gap: 20px;
   padding-top: 36px;
   margin-top: 36px;
-  border-top: 1px solid #dce5df;
-  color: #7c8d84;
+  border-top: 1px solid #dce7f2;
+  color: #657d93;
   font-size: .64rem;
 }
 .booking-app .card {
@@ -561,9 +514,6 @@ body:has(.booking-app) {
     max-width: 480px;
     margin-bottom: 20px;
   }
-  .care-art {
-    display: none;
-  }
   .appointment-summary {
     padding: 16px 0 0;
   }
@@ -605,3 +555,45 @@ body:has(.booking-app) {
     scroll-behavior: auto !important;
   }
 }
+
+/* Booking introduction above the form, with a compact selection summary. */
+.booking-app .site-header {margin-bottom:28px;}
+.booking-hero {text-align:center;max-width:800px;margin:0 auto 40px;padding:18px 12px 12px;}
+.booking-app .booking-hero h1 {font-size:clamp(2rem,3.5vw,3.1rem);line-height:1.2;letter-spacing:-.04em;font-weight:600;margin:0 0 16px;text-wrap:balance;}
+.booking-hero h1 em {color:#2275b5;font-style:normal;}
+.booking-hero p {font-size:1rem;line-height:1.7;color:#60778c;margin:0;}
+.booking-layout {grid-template-columns:minmax(0,.65fr) minmax(0,1.35fr);gap:36px;}
+.booking-app .intro-panel {padding-top:0;}
+.booking-app .appointment-summary {background:#f1f8ff;border:1px solid #d9e8f5;border-radius:16px;padding:24px;}
+@media(max-width:720px){.booking-hero{margin-bottom:24px;padding:10px 0;}.booking-app .booking-hero h1{font-size:2rem;line-height:1.25;}.booking-hero p{font-size:.9rem;}.booking-layout{grid-template-columns:1fr;gap:20px;}.booking-app .appointment-summary{padding:16px 18px;gap:7px;}}
+
+/* One centered booking column, with the selection beside the final action. */
+.booking-app .booking-layout {display:block;max-width:720px;margin-inline:auto;}
+.booking-app .booking-hero {max-width:720px;margin-inline:auto;margin-bottom:28px;}
+.booking-app .booking-layout main {width:100%;}
+.booking-app form>.appointment-summary {grid-column:1/-1;margin-top:4px;padding:18px 20px;background:#edf6ff;border:1px solid #d5e7f7;border-radius:12px;gap:7px;}
+.booking-app form>.appointment-summary strong {font-size:1rem;}
+@media(max-width:720px){.booking-app .booking-hero{margin-bottom:22px;}.booking-app form>.appointment-summary{padding:16px;}}
+
+/* More readable booking form labels and input text. */
+.booking-app .form-group label,.booking-app .form-group > p {font-size:1rem;line-height:1.5;}
+.booking-app input {font-size:1rem;min-height:52px;}
+.booking-app input::placeholder {font-size:.95rem;}
+.booking-app .section-label span {font-size:.8rem;}
+
+
+/* Stronger form readability and calendar state contrast. */
+.booking-app .form-group label,.booking-app .form-group > p {font-size:1.125rem;}
+.booking-app input {font-size:1.125rem;min-height:56px;}
+.booking-app input::placeholder {font-size:1.05rem;}
+.booking-app .calendar-grid > span {color:#465e73;font-size:.8rem;font-weight:600;}
+.booking-app .calendar-day {font-size:1rem;min-height:38px;}
+.booking-app .calendar-day.available {background:#e3f1ff;color:#164e80;border:1px solid #7eb5e2;font-weight:700;}
+.booking-app .calendar-day.available:hover {background:#c7e3fc;border-color:#2475b7;}
+.booking-app .calendar-day.disabled {background:#f0f2f4;color:#6e7781;border:1px solid #e1e5e9;opacity:1;text-decoration:line-through;font-weight:400;cursor:not-allowed;}
+.booking-app .calendar-day.selected {background:#165e9e;color:#fff;border:2px solid #104774;box-shadow:0 0 0 2px #c9e5fc;font-weight:750;}
+
+
+.booking-app .calendar-day {width:100%;max-width:100%;aspect-ratio:auto;height:40px;min-height:40px;}
+.booking-app .section-label {flex-wrap:wrap;gap:6px;}
+
