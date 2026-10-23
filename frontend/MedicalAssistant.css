@@ -16,6 +16,7 @@
 .medical-assistant-form textarea { box-sizing: border-box; width: 100%; resize: vertical; font: inherit; font-size: 16px; min-height: 90px; padding: 14px; border: 1px solid #b7d2e9; border-radius: 12px; }
 .medical-assistant-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .medical-assistant-error { color: #8b1820; }
+.medical-assistant-message a.medical-assistant-booking { display: inline-block; padding: 10px 14px; margin: 4px 0; border-radius: 8px; color: white; background: #143d59; text-decoration: none; }
 .medical-assistant-dialog :focus-visible, .medical-assistant-launcher:focus-visible { outline: 3px solid #267fa4; outline-offset: 3px; }
 @media (max-width: 480px) { .medical-assistant-dialog { padding: 12px; } .medical-assistant-launcher { right: 12px; bottom: 12px; } .medical-assistant-heading { flex-wrap: wrap; } }
 
