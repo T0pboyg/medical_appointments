@@ -371,5 +371,5 @@ if (rootElement) {
     const page =
         window.location.pathname === "/admin" ? <Admin /> : <App />;
 
-    createRoot(rootElement).render(<>{page}<MedicalAssistant /></>);
+    createRoot(rootElement).render(<>{page}{window.location.pathname !== "/admin" && <MedicalAssistant />}</>);
 }

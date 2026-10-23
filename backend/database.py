@@ -205,6 +205,9 @@ def cancel_appointment_in_db(
     actor_issuer,
     actor_subject,
     correlation_id,
+    *,
+    expected_starts_at=None,
+    expected_patient_name=None,
 ):
     database_url = os.environ["DATABASE_URL"]
 
@@ -220,9 +223,12 @@ def cancel_appointment_in_db(
                 WHERE id = %s
                   AND cancelled_at IS NULL
                   AND starts_at > CURRENT_TIMESTAMP
+                  AND (%s::timestamptz IS NULL OR starts_at = %s)
+                  AND (%s::text IS NULL OR patient_name = %s)
                 RETURNING id, cancelled_at;
                 """,
-                (appointment_id,),
+                (appointment_id, expected_starts_at, expected_starts_at,
+                 expected_patient_name, expected_patient_name),
             )
 
             cancelled = cursor.fetchone()
@@ -251,6 +257,27 @@ def cancel_appointment_in_db(
             )
 
     return cancelled
+
+
+def find_staff_appointments(*, day=None, appointment_id=None, future_only=False):
+    """Bounded staff lookup; never return phone numbers or national IDs."""
+    if day is None and appointment_id is None:
+        raise ValueError('A day or appointment ID is required')
+    with psycopg.connect(os.environ['DATABASE_URL'], row_factory=dict_row) as connection:
+        rows = connection.execute(
+            """
+            SELECT id, patient_name, starts_at
+            FROM appointments
+            WHERE cancelled_at IS NULL
+              AND (%s::date IS NULL OR (starts_at AT TIME ZONE 'Europe/Athens')::date = %s)
+              AND (%s::integer IS NULL OR id = %s)
+              AND (NOT %s OR starts_at > CURRENT_TIMESTAMP)
+            ORDER BY starts_at
+            LIMIT 201;
+            """,
+            (day, day, appointment_id, appointment_id, future_only),
+        ).fetchall()
+        return rows
 
 
 def create_availability_block(

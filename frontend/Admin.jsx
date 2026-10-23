@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import AvailabilityBlocks from "./AvailabilityBlocks.jsx";
+import StaffAssistant from "./StaffAssistant.jsx";
 import "./Admin.css";
 import { matchesAppointmentFilters } from "./appointmentFilters.js";
 
@@ -271,6 +272,9 @@ export default function Admin() {
             </header>
 
             <main><div className="admin-page-heading"><p className="admin-eyebrow">ΟΡΓΑΝΩΣΗ ΙΑΤΡΕΙΟΥ</p><h1>Τα ραντεβού σας</h1><p className="admin-subtitle">Όλες οι επισκέψεις σε μία καθαρή, συγκεντρωμένη προβολή.</p></div>
+                {csrfToken && !needsLogin && <StaffAssistant csrfToken={csrfToken} onUnauthorized={handleUnauthorized}
+                    onCancelled={cancelled => setAppointments(previous => previous.map(item => item.id === cancelled.id
+                        ? { ...item, cancelled_at: cancelled.cancelled_at } : item))} />}
                 <section className="card">
                     <h2>Ραντεβού</h2><p className="admin-section-note">Ημερομηνίες και ώρες Ελλάδας</p>
 
