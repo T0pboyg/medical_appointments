@@ -9,12 +9,17 @@ from assistant_knowledge import normalize
 def symptom_information(question):
     query = ' '.join(re.findall(r'\w+', normalize(question)))
     words = query.split()
-    throat_or_fever = any(word.startswith(('πυρετ', 'πονολαιμ')) for word in words)
-    throat_or_fever = throat_or_fever or bool(re.search(r'πονο\w*\s+(?:στον?\s+)?λαιμο', query))
-    headache = any(word.startswith('πονοκεφαλ') for word in words) or bool(re.search(r'πον\w*\s+(?:στο\s+)?κεφαλι', query))
+    fever = any(word.startswith('πυρετ') for word in words)
+    sore_throat = any(word.startswith('πονολαιμ') for word in words) or bool(re.search(r'πον\w*\s+(?:(?:στον?|τον?|ο)\s+)?λαιμο', query))
+    throat_or_fever = fever or sore_throat
+    headache = any(word.startswith('πονοκεφαλ') for word in words) or bool(re.search(r'πον\w*\s+(?:(?:στο|το|η|ο)\s+)?κεφαλι', query))
     cough = any(word.startswith(('βηχ', 'βηξ')) for word in words)
     gastrointestinal = any(word.startswith(('διαρρο', 'εμετ', 'εμεσ')) for word in words)
-    supported = throat_or_fever or headache or cough or gastrointestinal
+    cold = any(word.startswith(('συναχ', 'καταρρο', 'μπουκ', 'φτερν', 'κρυολογ')) for word in words)
+    cold = cold or bool(re.search(r'τρεχ\w*\s+(?:η\s+)?μυτη', query))
+    dizziness = any(word.startswith(('ζαλ', 'ιλιγγ')) for word in words)
+    dizziness = dizziness or 'γυριζουν ολα' in query
+    supported = throat_or_fever or headache or cough or gastrointestinal or cold or dizziness
     red_flags = (
         'δυσκολια στην αναπνοη', 'δυσκολευομαι να αναπνευσω',
         'δεν μπορω να καταπιω', 'δεν μπορει να καταπιει',
@@ -22,6 +27,12 @@ def symptom_information(question):
         'δεν καταπινω', 'τρεχουν σαλια',
     )
     urgent = any(phrase in query for phrase in red_flags)
+    if dizziness:
+        urgent = urgent or any(phrase in query for phrase in (
+            'δυσκολια στην ομιλια', 'δεν μπορω να μιλησω', 'δυσκολευομαι να μιλησω',
+            'απωλεια ορασησ', 'δεν βλεπω',
+        )) or (any(word.startswith('ξαφν') for word in words)
+               and any(word.startswith(('αδυναμ', 'μουδιασ')) for word in words))
     if headache:
         sudden = any(word.startswith('ξαφν') for word in words)
         severe = any(word.startswith(('δυνατ', 'εντον', 'χειροτερ', 'εξαιρετικ')) for word in words)
@@ -45,10 +56,18 @@ def symptom_information(question):
         (profile['id'] == 'headache' and headache)
         or (profile['id'] == 'cough' and cough)
         or (profile['id'] == 'gastrointestinal' and gastrointestinal)
+        or (profile['id'] == 'cold' and cold)
+        or (profile['id'] == 'dizziness' and dizziness)
     )]
-    sources = information['sources'] if throat_or_fever or not selected else []
+    sources = [source for source in information['sources'] if (
+        (source['id'] == 'sore-throat-original' and sore_throat)
+        or (source['id'] == 'adult-fever-original' and fever)
+    )]
     sources = sources + [profile['source'] for profile in selected]
-    emergencies = ([information['emergency']] if throat_or_fever or not selected else []) + [p['emergency'] for p in selected]
+    sources += [source for profile in selected for source in profile.get('additional_sources', [])]
+    emergencies = ([information['emergency']] if sore_throat else []) + [p['emergency'] for p in selected]
+    if not emergencies:
+        emergencies = [information['general_emergency']]
     emergency_text = '\n\n'.join(emergencies)
     answer = {
         'status': 'symptom_information', 'sources': sources,
@@ -69,12 +88,23 @@ def symptom_information(question):
         answer.update(status='symptom_scope', answer=information['special_scope'] + '\n\n' + emergency_text)
         return answer
 
-    paragraphs = [information['scope'], emergency_text]
+    personal = bool(re.search(r'\b(?:εχω|μου|με|ζαλιζομαι|φτερνιζομαι|κανω)\b', query))
+    introduction = ('Λυπάμαι που ταλαιπωρείσαι. Θα σου δώσω μερικές πρακτικές, γενικές πληροφορίες.'
+                    if personal else 'Μπορώ να μοιραστώ μερικές γενικές πληροφορίες και σημεία που χρειάζονται προσοχή.')
+    duration = re.search(r'\b(?:για|εδω και)\s+([1-9]\d?)\s+(?:μερεσ|ημερεσ)\b', query)
+    if duration:
+        introduction += f' Αναφέρεις διάρκεια {duration.group(1)} μέρες· πες το στον γιατρό, μαζί με το αν τα συμπτώματα βελτιώνονται ή χειροτερεύουν.'
+    paragraphs = [introduction, emergency_text]
+    if sore_throat:
+        paragraphs.append(information['throat_contact'])
+    if fever:
+        paragraphs.append(information['fever_contact'])
     if throat_or_fever:
-        paragraphs.extend((information['contact'], information['self_care']))
+        paragraphs.append(information['self_care'])
     for profile in selected:
         paragraphs.extend((profile['contact'], profile['self_care']))
     if selected:
         paragraphs.append('Δεν μπορώ να επιλέξω φάρμακο ή δοσολογία για εσάς. Για προσωπική θεραπεία ζητήστε οδηγίες γιατρού ή φαρμακοποιού.')
+    paragraphs.append(information['scope'])
     answer['answer'] = '\n\n'.join(paragraphs)
     return answer

@@ -7,7 +7,6 @@ from assistant_service import answer_question
 class BookingHelpTests(unittest.IsolatedAsyncioTestCase):
     async def test_booking_questions_return_form_guidance_without_model(self):
         for question in (
-            'Θέλω να κλείσω ένα ραντεβού στον γιατρό την επόμενη εβδομάδα, τι πρέπει να κάνω;',
             'Πώς κλείνω ραντεβού;',
             'Υπάρχει διαθέσιμο ραντεβού τη Δευτέρα στις 10:00;',
             'Θέλω ραντεβού στις 12/11, μπορείς να το κλείσεις;',

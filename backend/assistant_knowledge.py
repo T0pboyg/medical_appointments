@@ -30,6 +30,15 @@ def _topic_scores(query):
     normal_range = bool(re.search(r'\bφυσιολογικ\w*\s+(?:ευροσ|ορι\w*|τιμ\w*)\b', query))
 
     scores = {}
+    if _has_prefix(words, 'υπνο', 'αυπν', 'κοιμα', 'κοιμηθ') or (
+        _has_prefix(words, 'ξυπνα') and _has_prefix(words, 'νυχτ', 'βραδ')
+    ):
+        scores['healthy-sleep'] = 16
+    if _has_prefix(words, 'αντιβιω', 'αντιβιοτ') and (
+        re.search(r'\bτι\s+ειναι\b', query)
+        or (_has_prefix(words, 'ιου', 'ιοσ', 'ιωσ') and _has_prefix(words, 'δρ', 'δρασ', 'λειτουργ', 'βοηθ', 'πιαν'))
+    ):
+        scores['antibiotics-general'] = 16
     if visit and (preparation or bringing or discussion):
         scores['visit-preparation'] = 12 + 3 * bringing
     if lab and (preparation or fasting or medication):
@@ -63,7 +72,7 @@ def _focused_document(doc, query):
 
 
 def retrieve(question):
-    """Conservative intent-aware retrieval for the three supported topics.
+    """Conservative intent-aware retrieval for explicitly supported topics.
 
     Topic plus preparation/meaning intent is required. Generic words are not
     evidence of relevance. New corpus topics must get explicit rules and evals.
@@ -80,6 +89,7 @@ def retrieve(question):
         return []
     path = Path(__file__).parent / 'knowledge' / 'medical_information.json'
     documents = json.loads(path.read_text(encoding='utf-8'))
+    documents += json.loads((path.parent / 'wellbeing_information.json').read_text(encoding='utf-8'))
     ranked = [doc for doc in documents if doc['id'] in scores]
     ranked.sort(key=lambda doc: (-scores[doc['id']], doc['id']))
     return [_focused_document(doc, query) for doc in ranked[:2]]

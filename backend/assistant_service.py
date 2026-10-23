@@ -8,9 +8,11 @@ import httpx
 
 from assistant_knowledge import normalize, retrieve
 from assistant_symptoms import symptom_information
+from assistant_booking import booking_response
+from starlette.concurrency import run_in_threadpool
 
 _generation = threading.Lock()
-UNKNOWN = 'Δεν υπάρχουν επαρκείς πληροφορίες στις διαθέσιμες πηγές. Μπορώ να βοηθήσω με προετοιμασία επίσκεψης και γενικές πληροφορίες εργαστηριακών εξετάσεων. Για προσωπικά συμπτώματα, αποτελέσματα ή θεραπεία απευθυνθείτε στον γιατρό σας.'
+UNKNOWN = 'Δεν έχω αρκετές τεκμηριωμένες πληροφορίες για να σου απαντήσω με ασφάλεια σε αυτό. Μπορώ να βοηθήσω με προετοιμασία επίσκεψης, εξετάσεις, ύπνο, ορισμένα συχνά συμπτώματα και διαθέσιμες ώρες ραντεβού. Μπορείς να διατυπώσεις την ερώτησή σου λίγο πιο συγκεκριμένα, χωρίς προσωπικά στοιχεία; Για προσωπική αξιολόγηση ή θεραπεία χρειάζεται γιατρός.'
 
 
 class AssistantUnavailable(Exception):
@@ -23,33 +25,6 @@ class AssistantBusy(Exception):
 
 def result(answer, status, sources=None):
     return {'answer': answer, 'status': status, 'sources': sources or []}
-
-
-def booking_help(query):
-    words = re.findall(r'\w+', query)
-    if not any(word.startswith('ραντεβου') for word in words):
-        return None
-    if any(term in query for term in ('κοστι', 'κοστοσ', 'ωραριο', 'τηλεφων', 'διευθυνση')):
-        return None
-    booking_intent = any(word.startswith(('κλεισ', 'κλειν', 'κανονισ', 'κρατησ', 'διαθεσιμ')) for word in words)
-    booking_intent = booking_intent or bool(re.search(r'\bθελω\s+(?:ενα\s+)?ραντεβου\b', query))
-    if not booking_intent:
-        return None
-    return {
-        'status': 'booking_help',
-        'answer': (
-            'Μπορείτε να κλείσετε ραντεβού από τη φόρμα κράτησης της ιστοσελίδας. '
-            'Συμπληρώστε τα υποχρεωτικά στοιχεία μόνο στη φόρμα, επιλέξτε την ημερομηνία '
-            'που σας εξυπηρετεί και μία από τις διαθέσιμες ώρες και υποβάλετε την κράτηση. '
-            'Περιμένετε το μήνυμα επιτυχούς κράτησης. Για την επόμενη εβδομάδα, '
-            'μεταβείτε στον αντίστοιχο μήνα του ημερολογίου αν χρειάζεται. '
-            'Δεν έχω ελέγξει συγκεκριμένη διαθεσιμότητα και δεν επιλέγω ημέρα ή ώρα για εσάς. '
-            'Δεν έχει δημιουργηθεί ραντεβού από αυτή τη συνομιλία. '
-            'Μην γράφετε εδώ ΑΜΚΑ, τηλέφωνο ή άλλα προσωπικά στοιχεία.'
-        ),
-        'sources': [],
-        'actions': [{'type': 'booking_form', 'label': 'Μετάβαση στην κράτηση', 'href': '/#appointment-form'}],
-    }
 
 
 async def answer_question(question, client=None):
@@ -66,16 +41,25 @@ async def answer_question(question, client=None):
     symptom_reply = symptom_information(question)
     if symptom_reply is not None:
         return symptom_reply
-    guidance = booking_help(query)
+    guidance = await run_in_threadpool(booking_response, question)
     if guidance is not None:
         return guidance
-    taking_medication = 'να παρω' in query and not re.search(r'να\s+παρω\s+μαζι\b', query)
-    if taking_medication or re.search(r'\d', question) or any(term in query for term in (
-        'δοσολογ', 'διαγνω', 'ποσα mg', 'τι εχω', 'αγνοησε',
-        'ignore', 'system prompt', 'αντιβιω', 'συμπτωμα εχω',
-    )):
-        return result(UNKNOWN, 'insufficient')
+    # Whole-message social phrases only: never swallow a symptom or a request
+    # following a greeting, and never send these trivial messages to the LLM.
+    social = ' '.join(re.findall(r'\w+', query))
+    if social in ('ευχαριστω', 'ευχαριστω πολυ', 'σε ευχαριστω', 'να σαι καλα'):
+        return result('Παρακαλώ! Αν θέλεις, μπορώ να σε βοηθήσω και με την προετοιμασία της επίσκεψης ή να δούμε διαθέσιμες ώρες για ραντεβού.', 'conversation')
+    if social in ('γεια', 'γεια σου', 'καλημερα', 'καλησπερα'):
+        return result('Γεια σου! Μπορώ να βοηθήσω με γενικές πληροφορίες υγείας, προετοιμασία για τον γιατρό και διαθέσιμες ώρες ραντεβού. Τι θα ήθελες να δούμε;', 'conversation')
     candidates = retrieve(question)
+    general_antibiotics = any(d['id'] == 'antibiotics-general' for d in candidates)
+    taking_medication = 'να παρω' in query and not re.search(r'να\s+παρω\s+μαζι\b', query)
+    personal_treatment = any(term in query for term in ('υπνωτικ', 'να σταματησ', 'να διακοψ', 'να αλλαξ', 'να ξεκινησ', 'να συνεχισ'))
+    if taking_medication or personal_treatment or re.search(r'\d', question) or any(term in query for term in (
+        'δοσολογ', 'διαγνω', 'ποσα mg', 'τι εχω', 'αγνοησε',
+        'ignore', 'system prompt', 'συμπτωμα εχω',
+    )) or ('αντιβιω' in query and not general_antibiotics):
+        return result(UNKNOWN, 'insufficient')
     if not candidates:
         return result(UNKNOWN, 'insufficient')
     if not _generation.acquire(blocking=False):
@@ -113,7 +97,17 @@ async def answer_question(question, client=None):
             selected = await request(client)
         if not selected:
             return result(UNKNOWN, 'insufficient')
-        return result('\n\n'.join(d['text'] for d in selected), 'grounded', [
+        intros = {
+            'visit-preparation': 'Ας το οργανώσουμε απλά, για να έχεις όσα χρειάζεσαι στην επίσκεψη.',
+            'lab-preparation': 'Ας δούμε τι χρειάζεται να προσέξεις πριν από την εξέταση.',
+            'lab-results': 'Οι όροι στα αποτελέσματα μπορεί να μπερδεύουν. Ας δούμε τι σημαίνουν γενικά.',
+            'healthy-sleep': 'Το να δυσκολεύεσαι με τον ύπνο μπορεί να είναι κουραστικό. Ας δούμε μερικές απλές συνήθειες που μπορεί να βοηθήσουν.',
+            'antibiotics-general': 'Είναι χρήσιμο να ξεχωρίζουμε πότε βοηθούν τα αντιβιοτικά. Σε γενικές γραμμές:',
+        }
+        intro = intros.get(selected[0]['id'], '')
+        if intro:
+            intro += '\n\n'
+        return result(intro + '\n\n'.join(d['text'] for d in selected), 'grounded', [
             {key: d[key] for key in ('id', 'title', 'url', 'organization', 'checked_on', 'version')}
             for d in selected])
     except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError):

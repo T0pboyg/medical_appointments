@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from pydantic import BaseModel
 from fastapi import HTTPException
 from database import get_appointments_from_db,create_appointment_in_db
@@ -29,6 +29,7 @@ from security_headers import SecurityHeadersMiddleware
 from database import get_active_blocks_for_date
 from availability_blocks import router as availability_blocks_router
 from medical_assistant import router as medical_assistant_router
+from availability_service import get_available_slots
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
@@ -230,41 +231,11 @@ def cancel_appointment(
 
 @app.get("/availability")
 def get_availability(date: date):
-    clinic_timezone = ZoneInfo("Europe/Athens")
-    now = datetime.now(clinic_timezone)
-
-    if date < now.date() or date.weekday() >= 5:
-        return []
-
-    booked_times = get_booked_times_for_date(date)
-    blocks = get_active_blocks_for_date(date)
-
-    opening = datetime.combine(
+    return get_available_slots(
         date,
-        time(9, 0),
-        tzinfo=clinic_timezone,
+        booked_reader=get_booked_times_for_date,
+        blocks_reader=get_active_blocks_for_date,
     )
-    available_times = []
-
-    for index in range(16):
-        slot = opening + timedelta(minutes=index * 30)
-        slot_end = slot + timedelta(minutes=30)
-        slot_label = slot.strftime("%H:%M")
-
-        overlaps_block = any(
-            slot < block["ends_at"]
-            and slot_end > block["starts_at"]
-            for block in blocks
-        )
-
-        if (
-            slot > now
-            and slot_label not in booked_times
-            and not overlaps_block
-        ):
-            available_times.append(slot_label)
-
-    return available_times
 
 @app.patch("/appointments/{appointment_id}/attendance")
 def update_appointment_attendance(
