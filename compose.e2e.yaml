@@ -1,0 +1,66 @@
+name: medical-appointments-e2e
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: appointments
+      POSTGRES_PASSWORD: e2e-only-password
+      POSTGRES_DB: appointments_e2e
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appointments -d appointments_e2e"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  backend:
+    build: ./backend
+    volumes:
+      - ./backend/tests/e2e_server.py:/app/e2e_server.py:ro
+    command: ["python", "e2e_server.py"]
+    environment:
+      E2E_TEST_MODE: isolated-e2e-only
+      DATABASE_URL: postgresql://appointments@db:5432/appointments_e2e
+      PGPASSWORD: e2e-only-password
+      API_PROXY_SECRET: e2e-only-proxy-secret
+      OIDC_CLIENT_ID: e2e-client
+      OIDC_CLIENT_SECRET: e2e-placeholder
+      OIDC_ISSUER: http://e2e.invalid/realm
+      OIDC_METADATA_URL: http://e2e.invalid/metadata
+      OIDC_REDIRECT_URI: http://localhost:5173/api/auth/callback
+      KEYCLOAK_ACCESS_CLIENT_ID: e2e-checker
+      KEYCLOAK_ACCESS_CLIENT_SECRET: e2e-placeholder
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/__e2e/health')"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  frontend:
+    build:
+      context: .
+      dockerfile: e2e/frontend.Dockerfile
+    environment:
+      API_PROXY_SECRET: e2e-only-proxy-secret
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5173').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  runner:
+    build: ./e2e
+    network_mode: service:frontend
+    init: true
+    environment:
+      TZ: Europe/Athens
+    shm_size: 1gb
+    volumes:
+      - ./e2e/test-results:/tests/test-results
+    depends_on:
+      frontend:
+        condition: service_healthy

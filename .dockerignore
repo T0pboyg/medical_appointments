@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+backups
+**/node_modules
+**/dist
+**/__pycache__
+**/.venv
+e2e/test-results
+e2e/playwright-report
