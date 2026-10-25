@@ -10,11 +10,12 @@ from availability_service import CLINIC_TIMEZONE, get_available_slots
 def booking_response(question, *, now=None):
     query = ' '.join(re.findall(r'[\w:/-]+', normalize(question)))
     words = query.split()
-    if not any(word.startswith('ραντεβου') for word in words):
+    availability_request = any(word.startswith(('διαθεσιμ', 'ελευθερ')) for word in words) and any(word.startswith(('ωρ', 'ραντεβου')) for word in words)
+    if not any(word.startswith('ραντεβου') for word in words) and not availability_request:
         return None
     if any(term in query for term in ('κοστι', 'κοστοσ', 'ωραριο', 'τηλεφων', 'διευθυνση')):
         return None
-    if not (any(word.startswith(('κλεισ', 'κλειν', 'κανονισ', 'κρατησ', 'διαθεσιμ')) for word in words)
+    if not (availability_request or any(word.startswith(('κλεισ', 'κλειν', 'κανονισ', 'κρατησ', 'διαθεσιμ')) for word in words)
             or re.search(r'\bθελω\s+(?:ενα\s+)?ραντεβου\b', query)):
         return None
     response = {
@@ -45,6 +46,9 @@ def booking_response(question, *, now=None):
         elif 'σημερα' in words:
             days = [today]
     if not days:
+        if 'εσυ' in words or ('φορμα' in words and any(word.startswith('συμπληρ') for word in words)):
+            response['answer'] = 'Μπορώ να σε βοηθήσω να βρεις διαθέσιμες ώρες, αλλά δεν υποβάλλω κράτηση για λογαριασμό σου. ' + footer
+            return response
         response['answer'] = ('Φυσικά, μπορώ να σε βοηθήσω. Για να ελέγξω διαθέσιμες ώρες, '
                               'πες μου «σήμερα», «αύριο», «μεθαύριο» ή «την επόμενη εβδομάδα», '
                               'χωρίς επιπλέον περιορισμό ημέρας ή ώρας προς το παρόν. '

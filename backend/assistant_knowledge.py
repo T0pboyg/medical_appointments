@@ -30,6 +30,10 @@ def _topic_scores(query):
     normal_range = bool(re.search(r'\bφυσιολογικ\w*\s+(?:ευροσ|ορι\w*|τιμ\w*)\b', query))
 
     scores = {}
+    describing = _has_prefix(words, 'εξηγησ', 'περιγραψ', 'περιγραφ')
+    recording = _has_prefix(words, 'σημειωσ', 'γραψ')
+    if visit and (describing or recording):
+        scores['visit-communication'] = 18
     if _has_prefix(words, 'υπνο', 'αυπν', 'κοιμα', 'κοιμηθ') or (
         _has_prefix(words, 'ξυπνα') and _has_prefix(words, 'νυχτ', 'βραδ')
     ):

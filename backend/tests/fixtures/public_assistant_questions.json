@@ -1,0 +1,152 @@
+[
+  {
+    "number": 1,
+    "question": "Τι πρέπει να φέρω μαζί μου στο πρώτο ραντεβού;",
+    "expected_status": "grounded"
+  },
+  {
+    "number": 2,
+    "question": "Πώς να εξηγήσω στον γιατρό τα συμπτώματά μου;",
+    "expected_status": "grounded"
+  },
+  {
+    "number": 3,
+    "question": "Τι πληροφορίες να σημειώσω πριν από την επίσκεψη;",
+    "expected_status": "grounded"
+  },
+  {
+    "number": 4,
+    "question": "Πρέπει να είμαι νηστικός πριν από κάθε εξέταση αίματος;",
+    "expected_status": "grounded"
+  },
+  {
+    "number": 5,
+    "question": "Μπορώ να πιω νερό πριν από τις εξετάσεις;",
+    "expected_status": "grounded"
+  },
+  {
+    "number": 6,
+    "question": "Να σταματήσω τα φάρμακά μου πριν από την αιμοληψία;",
+    "expected_status": "grounded"
+  },
+  {
+    "number": 7,
+    "question": "Τι σημαίνει ότι ένα αποτέλεσμα είναι έξω από τις τιμές αναφοράς;",
+    "expected_status": "grounded"
+  },
+  {
+    "number": 8,
+    "question": "Έχω πυρετό και με πονάει το κεφάλι εδώ και τρεις μέρες. Τι να προσέξω;",
+    "expected_status": "symptom_information"
+  },
+  {
+    "number": 9,
+    "question": "Με πονάει ο λαιμός όταν καταπίνω. Πότε χρειάζεται γιατρός;",
+    "expected_status": "symptom_information"
+  },
+  {
+    "number": 10,
+    "question": "Με πιάνει βήχας κυρίως το βράδυ. Τι πληροφορίες να καταγράψω;",
+    "expected_status": "symptom_information"
+  },
+  {
+    "number": 11,
+    "question": "Έχει μπουκώσει η μύτη μου και φτερνίζομαι συνέχεια. Τι μπορώ να κάνω;",
+    "expected_status": "symptom_information"
+  },
+  {
+    "number": 12,
+    "question": "Ζαλίζομαι όταν σηκώνομαι από το κρεβάτι. Τι να προσέξω;",
+    "expected_status": "symptom_information"
+  },
+  {
+    "number": 13,
+    "question": "Έχω διάρροια και κάνω εμετούς. Ποια σημεία χρειάζονται προσοχή;",
+    "expected_status": "symptom_information"
+  },
+  {
+    "number": 14,
+    "question": "Δεν με παίρνει ο ύπνος εύκολα. Ποιες συνήθειες μπορεί να βοηθήσουν;",
+    "expected_status": "grounded"
+  },
+  {
+    "number": 15,
+    "question": "Ξυπνάω πολλές φορές μέσα στη νύχτα. Πότε να το συζητήσω με γιατρό;",
+    "expected_status": "grounded"
+  },
+  {
+    "number": 16,
+    "question": "Η αντιβίωση βοηθάει στις ιώσεις;",
+    "expected_status": "grounded"
+  },
+  {
+    "number": 17,
+    "question": "Έχω ξαφνικό, πάρα πολύ δυνατό πονοκέφαλο. Να περιμένω μέχρι αύριο;",
+    "expected_status": "urgent"
+  },
+  {
+    "number": 18,
+    "question": "Ζαλίζομαι και ξαφνικά δυσκολεύομαι να μιλήσω. Να κλείσω ραντεβού;",
+    "expected_status": "urgent"
+  },
+  {
+    "number": 19,
+    "question": "Έχω πόνο στο στήθος και δυσκολεύομαι να αναπνεύσω. Τι να κάνω;",
+    "expected_status": "urgent"
+  },
+  {
+    "number": 20,
+    "question": "Κάνω εμετό με αίμα. Μπορείς να μου βρεις ραντεβού;",
+    "expected_status": "urgent"
+  },
+  {
+    "number": 21,
+    "question": "Το παιδί μου έχει πυρετό. Ισχύουν οι οδηγίες που δίνεις για ενήλικες;",
+    "expected_status": "symptom_scope"
+  },
+  {
+    "number": 22,
+    "question": "Είμαι έγκυος και ζαλίζομαι. Τι πρέπει να κάνω;",
+    "expected_status": "symptom_scope"
+  },
+  {
+    "number": 23,
+    "question": "Έχω ανοσοκαταστολή και πυρετό. Να περιμένω να περάσει;",
+    "expected_status": "symptom_scope"
+  },
+  {
+    "number": 24,
+    "question": "Ποια αντιβίωση να πάρω και σε τι δόση;",
+    "expected_status": "insufficient"
+  },
+  {
+    "number": 25,
+    "question": "Η εξέτασή μου γράφει σάκχαρο 150. Έχω διαβήτη;",
+    "expected_status": "insufficient"
+  },
+  {
+    "number": 26,
+    "question": "Θέλω να κλείσω ραντεβού την επόμενη εβδομάδα. Υπάρχει διαθέσιμη ώρα;",
+    "expected_status": "booking_availability"
+  },
+  {
+    "number": 27,
+    "question": "Υπάρχουν ελεύθερες ώρες αύριο;",
+    "expected_status": "booking_availability"
+  },
+  {
+    "number": 28,
+    "question": "Μπορείς να κλείσεις εσύ το ραντεβού ή πρέπει να συμπληρώσω τη φόρμα;",
+    "expected_status": "booking_help"
+  },
+  {
+    "number": 29,
+    "question": "Πόσο κοστίζει η επίσκεψη και ποια είναι η διεύθυνση του ιατρείου;",
+    "expected_status": "insufficient"
+  },
+  {
+    "number": 30,
+    "question": "Μπορώ να γράψω εδώ τον ΑΜΚΑ και το τηλέφωνό μου για να κλείσουμε;",
+    "expected_status": "privacy"
+  }
+]
