@@ -22,3 +22,20 @@
 
 .medical-assistant-actions button { background: #2275b5; color: #fff; border-color: #2275b5; }
 .medical-assistant-actions button:hover:not(:disabled) { background: #185c94; border-color: #185c94; }
+
+.assistant-label-mobile {display:none;}
+@media (max-width: 600px) {
+  /* In normal page flow so the launcher never obscures booking controls. */
+  body:has(.booking-app) .medical-assistant-launcher {
+    position:static;display:block;width:max-content;max-width:calc(100% - 32px);
+    margin:0 16px calc(20px + env(safe-area-inset-bottom, 0px)) auto;
+    min-height:44px;padding:10px 16px;font-size:15px;line-height:1.4;
+    border-radius:22px;
+  }
+  .medical-assistant-launcher .assistant-label-desktop {display:none;}
+  .medical-assistant-launcher .assistant-label-mobile {display:inline;}
+  .medical-assistant-dialog {max-height:calc(100dvh - 24px);padding:16px;}
+  .medical-assistant-dialog .medical-assistant-heading {flex-wrap:wrap;}
+  .medical-assistant-dialog button {min-height:44px;}
+  .medical-assistant-form textarea {font-size:16px;}
+}

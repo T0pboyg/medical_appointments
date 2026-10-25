@@ -99,7 +99,7 @@ export default function MedicalAssistant() {
     return <>
         <button className="medical-assistant-launcher" type="button" ref={launcher}
             aria-haspopup="dialog" aria-expanded={open} aria-controls="medical-assistant-dialog"
-            onClick={() => setOpen(true)}>AI Assistant</button>
+            onClick={() => setOpen(true)} aria-label="AI Assistant"><span className="assistant-label-desktop" aria-hidden="true">AI Assistant</span><span className="assistant-label-mobile" aria-hidden="true">Βοηθός</span></button>
         <dialog id="medical-assistant-dialog" ref={dialog} className="medical-assistant-dialog"
             aria-labelledby="medical-assistant-title"
             onCancel={event => { event.preventDefault(); close(); }}>

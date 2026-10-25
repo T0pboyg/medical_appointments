@@ -597,3 +597,23 @@ body:has(.booking-app) {
 .booking-app .calendar-day {width:100%;max-width:100%;aspect-ratio:auto;height:40px;min-height:40px;}
 .booking-app .section-label {flex-wrap:wrap;gap:6px;}
 
+
+/* Mobile booking: full-width fields and comfortable touch controls. */
+@media (max-width: 600px) {
+  .booking-app {padding:20px 14px 24px;}
+  .booking-app .site-header {margin-bottom:20px;gap:12px;}
+  .booking-app .booking-hero {margin-bottom:20px;padding:8px 0;}
+  .booking-app .booking-hero h1 {font-size:1.85rem;line-height:1.25;}
+  .booking-app .card {padding:24px 16px;}
+  .booking-app form {grid-template-columns:minmax(0,1fr);gap:18px;}
+  .booking-app input {min-height:56px;}
+  .booking-app .calendar-container {padding:12px;}
+  .booking-app .calendar-grid {gap:4px;}
+  .booking-app .calendar-day {height:44px;min-height:44px;}
+  .booking-app .calendar-header button {width:44px;height:44px;flex-shrink:0;}
+  .booking-app .time-chips {grid-template-columns:repeat(3,minmax(0,1fr));}
+  .booking-app .time-chip {min-height:48px;font-size:.95rem;}
+  .booking-app .booking-steps {margin:20px 0;}
+}
+
+@media (max-width:600px) {body:has(.booking-app) {min-width:0;}}
