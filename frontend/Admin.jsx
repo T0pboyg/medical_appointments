@@ -2,13 +2,59 @@ import React, { useCallback, useEffect, useState } from "react";
 import AvailabilityBlocks from "./AvailabilityBlocks.jsx";
 import StaffAssistant from "./StaffAssistant.jsx";
 import "./Admin.css";
-import { matchesAppointmentFilters } from "./appointmentFilters.js";
+import { getClinicDate } from "./appointmentFilters.js";
+
+function AppointmentDetails({ id, onUnauthorized }) {
+    const [open, setOpen] = useState(false);
+    const [details, setDetails] = useState(null);
+    const [error, setError] = useState("");
+    const [retry, setRetry] = useState(0);
+
+    useEffect(() => {
+        if (!open) return;
+        const controller = new AbortController();
+        setDetails(null);
+        setError("");
+        async function load() {
+            try {
+                const response = await fetch(`/api/appointments/${id}`, {
+                    signal: controller.signal, cache: "no-store",
+                });
+                if (controller.signal.aborted || onUnauthorized(response)) return;
+                if (!response.ok) throw new Error("Details request failed");
+                const data = await response.json();
+                if (!controller.signal.aborted) setDetails(data);
+            } catch {
+                if (!controller.signal.aborted) setError("Δεν ήταν δυνατή η φόρτωση των λεπτομερειών.");
+            }
+        }
+        load();
+        return () => controller.abort();
+    }, [open, id, onUnauthorized, retry]);
+
+    return <div className="admin-private-details">
+        <button type="button" aria-expanded={open} aria-controls={`appointment-details-${id}`}
+            onClick={() => { setOpen(value => !value); setDetails(null); setError(""); }}>
+            {open ? "Κλείσιμο λεπτομερειών" : "Λεπτομέρειες"}
+        </button>
+        {open && <div id={`appointment-details-${id}`}>
+            {error ? <><p role="alert">{error}</p><button type="button" onClick={() => setRetry(value => value + 1)}>Επανάληψη λεπτομερειών</button></>
+                : details ? <dl><div><dt>Τηλέφωνο</dt><dd>{details.patient_phone || "—"}</dd></div>
+                    <div><dt>ΑΜΚΑ</dt><dd>{details.patient_AMKA || "—"}</dd></div></dl>
+                    : <p role="status">Φόρτωση λεπτομερειών…</p>}
+        </div>}
+    </div>;
+}
 
 export default function Admin() {
     const [appointments, setAppointments] = useState([]);
     const [loadError, setLoadError] = useState("");
     const [searchAmka, setSearchAmka] = useState("");
-    const [searchDate, setSearchDate] = useState("");
+    const [searchDate, setSearchDate] = useState(() => getClinicDate());
+    const [isLoading, setIsLoading] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
     const [updatingId, setUpdatingId] = useState(null);
     const [csrfToken, setCsrfToken] = useState("");
     const [needsLogin, setNeedsLogin] = useState(false);
@@ -19,6 +65,7 @@ export default function Admin() {
         }
 
         setAppointments([]);
+        setHasMore(false);
         setSearchAmka("");
         setSearchDate("");
         setCsrfToken("");
@@ -29,7 +76,22 @@ export default function Admin() {
     }, []);
 
     useEffect(() => {
+        if (needsLogin) {
+            return;
+        }
+
         const controller = new AbortController();
+
+        setAppointments([]);
+        setHasMore(false);
+        setLoadError("");
+
+        if (!searchDate || (searchAmka && !/^[0-9]{11}$/.test(searchAmka))) {
+            setIsLoading(false);
+            return () => controller.abort();
+        }
+
+        setIsLoading(true);
 
         async function fetchAppointments() {
             try {
@@ -38,38 +100,38 @@ export default function Admin() {
                     cache: "no-store",
                 });
 
-                if (controller.signal.aborted) {
-                    return;
-                }
-
-                if (handleUnauthorized(csrfResponse)) {
-                    return;
-                }
+                if (controller.signal.aborted) return;
+                if (handleUnauthorized(csrfResponse)) return;
 
                 if (!csrfResponse.ok) {
                     throw new Error("CSRF request failed");
                 }
 
                 const csrfData = await csrfResponse.json();
-
-                if (controller.signal.aborted) {
-                    return;
-                }
+                if (controller.signal.aborted) return;
 
                 setCsrfToken(csrfData.csrf_token);
 
-                const response = await fetch("/api/appointments", {
-                    signal: controller.signal,
-                    cache: "no-store",
+                const parameters = new URLSearchParams({
+                    appointment_date: searchDate,
+                    page: String(page),
+                    page_size: "25",
                 });
 
-                if (controller.signal.aborted) {
-                    return;
+                if (searchAmka) {
+                    parameters.set("patient_AMKA", searchAmka);
                 }
 
-                if (handleUnauthorized(response)) {
-                    return;
-                }
+                const response = await fetch(
+                    `/api/appointments/page?${parameters.toString()}`,
+                    {
+                        signal: controller.signal,
+                        cache: "no-store",
+                    }
+                );
+
+                if (controller.signal.aborted) return;
+                if (handleUnauthorized(response)) return;
 
                 if (!response.ok) {
                     throw new Error("Appointments request failed");
@@ -78,24 +140,34 @@ export default function Admin() {
                 const data = await response.json();
 
                 if (!controller.signal.aborted) {
-                    setAppointments(data);
+                    setAppointments(data.items);
+                    setHasMore(data.has_more);
                 }
             } catch {
                 if (!controller.signal.aborted) {
                     setLoadError("Δεν ήταν δυνατή η φόρτωση των ραντεβού.");
                 }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoading(false);
+                }
             }
         }
 
-        fetchAppointments();
+        const timer = setTimeout(fetchAppointments, 300);
 
-        return () => controller.abort();
-    }, [handleUnauthorized]);
-
-    const filteredAppointments = appointments.filter(
-        (appointment) =>
-            matchesAppointmentFilters(appointment, searchAmka, searchDate)
-    );
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [
+        handleUnauthorized,
+        searchDate,
+        searchAmka,
+        needsLogin,
+        reloadKey,
+        page,
+    ]);
 
     function getAppointmentStatus(appointment) {
         if (appointment.cancelled_at) {
@@ -151,15 +223,8 @@ export default function Admin() {
                 return;
             }
 
-            const updated = await response.json();
-
-            setAppointments((previous) =>
-                previous.map((item) =>
-                    item.id === updated.id
-                        ? { ...item, no_show: updated.no_show }
-                        : item
-                )
-            );
+            await response.json();
+            setReloadKey((value) => value + 1);
         } catch {
             setLoadError("Δεν ήταν δυνατή η επικοινωνία με τον server.");
         } finally {
@@ -210,18 +275,8 @@ export default function Admin() {
                 return;
             }
 
-            const cancelled = await response.json();
-
-            setAppointments((previous) =>
-                previous.map((item) =>
-                    item.id === cancelled.id
-                        ? {
-                            ...item,
-                            cancelled_at: cancelled.cancelled_at,
-                        }
-                        : item
-                )
-            );
+            await response.json();
+            setReloadKey((value) => value + 1);
         } catch {
             setLoadError("Δεν ήταν δυνατή η επικοινωνία με τον server.");
         } finally {
@@ -273,38 +328,43 @@ export default function Admin() {
 
             <main><div className="admin-page-heading"><p className="admin-eyebrow">ΟΡΓΑΝΩΣΗ ΙΑΤΡΕΙΟΥ</p><h1>Τα ραντεβού σας</h1><p className="admin-subtitle">Όλες οι επισκέψεις σε μία καθαρή, συγκεντρωμένη προβολή.</p></div>
                 {csrfToken && !needsLogin && <StaffAssistant csrfToken={csrfToken} onUnauthorized={handleUnauthorized}
-                    onCancelled={cancelled => setAppointments(previous => previous.map(item => item.id === cancelled.id
-                        ? { ...item, cancelled_at: cancelled.cancelled_at } : item))} />}
+                    onCancelled={() => setReloadKey((value) => value + 1)} />}
                 <section className="card">
                     <h2>Ραντεβού</h2><p className="admin-section-note">Ημερομηνίες και ώρες Ελλάδας</p>
 
                     <div className="admin-filters" role="search" aria-label="Αναζήτηση ραντεβού">
                         <div className="form-group">
-                        <label htmlFor="admin-search-amka">
-                            Αναζήτηση με ΑΜΚΑ
-                        </label>
-                        <input
-                            id="admin-search-amka"
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={11}
-                            placeholder="Πληκτρολόγησε τα 11 ψηφία του ΑΜΚΑ"
-                            value={searchAmka}
-                            onChange={(event) =>
-                                setSearchAmka(event.target.value)
-                            }
-                        />
-                    </div>
+                            <label htmlFor="admin-search-amka">
+                                Αναζήτηση με ΑΜΚΑ
+                            </label>
+                            <input
+                                id="admin-search-amka"
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={11}
+                                placeholder="Πληκτρολόγησε τα 11 ψηφία του ΑΜΚΑ"
+                                value={searchAmka}
+                                onChange={(event) =>
+                                    { setSearchAmka(event.target.value); setPage(1); }
+                                }
+                            />
+                        </div>
                         <div className="form-group">
                             <label htmlFor="admin-search-date">Ημερομηνία ραντεβού</label>
                             <input id="admin-search-date" type="date" value={searchDate}
-                                onChange={(event) => setSearchDate(event.target.value)} />
+                                onChange={(event) => { setSearchDate(event.target.value); setPage(1); }} />
                         </div>
-                        {(searchAmka || searchDate) && <button className="admin-clear-filters" type="button" onClick={() => {setSearchAmka("");setSearchDate("");}}>Καθαρισμός φίλτρων</button>}
+                        {(searchAmka || searchDate) && <button className="admin-clear-filters" type="button" onClick={() => { setSearchAmka(""); setSearchDate(getClinicDate()); setPage(1); }}>Καθαρισμός φίλτρων</button>}
                     </div>
-                    <p className="admin-filter-hint">Αναζήτηση με ΑΜΚΑ, ημερομηνία ή και τα δύο μαζί.</p>
+                    <p className="admin-filter-hint">Προεπιλογή: σήμερα, σε ώρα Ελλάδας. Επίλεξε ημερομηνία και προαιρετικά πλήρες ΑΜΚΑ 11 ψηφίων.</p>
 
                     {loadError && <p role="alert">{loadError}</p>}
+                    {loadError && !needsLogin && (
+                        <button type="button" disabled={isLoading}
+                            onClick={() => setReloadKey((value) => value + 1)}>
+                            Επανάληψη φόρτωσης
+                        </button>
+                    )}
 
                     {needsLogin && (
                         <a href="/api/auth/login">
@@ -313,70 +373,98 @@ export default function Admin() {
                     )}
 
                     <div className="appointment-list" aria-label="Λίστα ραντεβού">
-                        {filteredAppointments.map((appointment) => (
+                        {appointments.map((appointment) => (
                             <article className="appointment-card" key={appointment.id} aria-label={`Ραντεβού ${appointment.id}`}>
                                 <div className="appointment-card-heading"><span>Ραντεβού #{appointment.id}</span><span className="status-badge" data-status={getAppointmentStatus(appointment)}>{getAppointmentStatus(appointment)}</span></div>
                                 <dl className="appointment-details">
-                                    <div><dt>Ημερομηνία</dt><dd>{new Date(appointment.starts_at).toLocaleDateString("el-GR", {timeZone: "Europe/Athens", day: "2-digit", month: "2-digit", year: "numeric"})}</dd></div>
-                                    <div><dt>Ώρα</dt><dd className="appointment-time">{new Date(appointment.starts_at).toLocaleTimeString("el-GR", {timeZone: "Europe/Athens", hour: "2-digit", minute: "2-digit"})}</dd></div>
+                                    <div><dt>Ημερομηνία</dt><dd>{new Date(appointment.starts_at).toLocaleDateString("el-GR", { timeZone: "Europe/Athens", day: "2-digit", month: "2-digit", year: "numeric" })}</dd></div>
+                                    <div><dt>Ώρα</dt><dd className="appointment-time">{new Date(appointment.starts_at).toLocaleTimeString("el-GR", { timeZone: "Europe/Athens", hour: "2-digit", minute: "2-digit" })}</dd></div>
                                     <div className="appointment-patient"><dt>Ασθενής</dt><dd>{appointment.patient_name}</dd><span className="appointment-reference">Ραντεβού #{appointment.id}</span></div>
                                 </dl>
                                 <div className="appointment-actions">
-                                            {!appointment.cancelled_at &&
-                                                Date.now() >=
-                                                new Date(
-                                                    appointment.starts_at
-                                                ).getTime() +
-                                                30 * 60 * 1000 && (
-                                                    <button
-                                                        type="button"
-                                                        disabled={
-                                                            updatingId !== null ||
-                                                            !csrfToken
-                                                        }
-                                                        onClick={() =>
-                                                            handleAttendanceChange(
-                                                                appointment
-                                                            )
-                                                        }
-                                                    >
-                                                        {updatingId ===
-                                                            appointment.id
-                                                            ? "Αποθήκευση…"
-                                                            : appointment.no_show
-                                                                ? "Επαναφορά σε ολοκληρωμένο"
-                                                                : "Δεν προσήλθε"}
-                                                    </button>
-                                                )}
+                                    {!appointment.cancelled_at &&
+                                        Date.now() >=
+                                        new Date(
+                                            appointment.starts_at
+                                        ).getTime() +
+                                        30 * 60 * 1000 && (
+                                            <button
+                                                type="button"
+                                                disabled={
+                                                    updatingId !== null ||
+                                                    !csrfToken
+                                                }
+                                                onClick={() =>
+                                                    handleAttendanceChange(
+                                                        appointment
+                                                    )
+                                                }
+                                            >
+                                                {updatingId ===
+                                                    appointment.id
+                                                    ? "Αποθήκευση…"
+                                                    : appointment.no_show
+                                                        ? "Επαναφορά σε ολοκληρωμένο"
+                                                        : "Δεν προσήλθε"}
+                                            </button>
+                                        )}
 
-                                            {!appointment.cancelled_at &&
-                                                new Date(
-                                                    appointment.starts_at
-                                                ).getTime() > Date.now() && (
-                                                    <button
-                                                        type="button"
-                                                        disabled={
-                                                            updatingId !== null ||
-                                                            !csrfToken
-                                                        }
-                                                        onClick={() =>
-                                                            handleCancel(
-                                                                appointment
-                                                            )
-                                                        }
-                                                    >
-                                                        {updatingId ===
-                                                            appointment.id
-                                                            ? "Ακύρωση…"
-                                                            : "Ακύρωση ραντεβού"}
-                                                    </button>
-                                                )}
+                                    {!appointment.cancelled_at &&
+                                        new Date(
+                                            appointment.starts_at
+                                        ).getTime() > Date.now() && (
+                                            <button
+                                                type="button"
+                                                disabled={
+                                                    updatingId !== null ||
+                                                    !csrfToken
+                                                }
+                                                onClick={() =>
+                                                    handleCancel(
+                                                        appointment
+                                                    )
+                                                }
+                                            >
+                                                {updatingId ===
+                                                    appointment.id
+                                                    ? "Ακύρωση…"
+                                                    : "Ακύρωση ραντεβού"}
+                                            </button>
+                                        )}
 
                                 </div>
+                                <AppointmentDetails id={appointment.id} onUnauthorized={handleUnauthorized} />
                             </article>
                         ))}
-                        {csrfToken && !loadError && filteredAppointments.length === 0 && <p className="admin-empty" role="status">{searchAmka || searchDate ? "Δεν βρέθηκαν ραντεβού με τα επιλεγμένα φίλτρα." : "Δεν υπάρχουν καταχωρισμένα ραντεβού."}</p>}
+                        {!needsLogin && isLoading && (
+                            <p role="status">Φόρτωση ραντεβού…</p>
+                        )}
+
+                        {!needsLogin && !searchDate && (
+                            <p role="status">Επίλεξε ημερομηνία για αναζήτηση.</p>
+                        )}
+
+                        {!needsLogin && searchAmka && !/^[0-9]{11}$/.test(searchAmka) && (
+                            <p role="status">Συμπλήρωσε ακριβώς 11 ψηφία ΑΜΚΑ.</p>
+                        )}
+
+                        {csrfToken && !needsLogin && !isLoading && !loadError &&
+                            searchDate && (!searchAmka || /^[0-9]{11}$/.test(searchAmka)) &&
+                            appointments.length === 0 && (
+                                <p className="admin-empty" role="status">
+                                    Δεν βρέθηκαν ραντεβού με τα επιλεγμένα φίλτρα.
+                                </p>
+                            )}
                     </div>
+                    {csrfToken && !needsLogin && searchDate && (!searchAmka || /^[0-9]{11}$/.test(searchAmka)) && (
+                        <nav className="admin-pagination" aria-label="Σελίδες ραντεβού">
+                            <button type="button" disabled={isLoading || page === 1}
+                                onClick={() => setPage(value => value - 1)}>Προηγούμενη σελίδα</button>
+                            <span role="status">Σελίδα {page}</span>
+                            <button type="button" disabled={isLoading || !hasMore || !!loadError}
+                                onClick={() => setPage(value => value + 1)}>Επόμενη σελίδα</button>
+                        </nav>
+                    )}
                 </section>
                 {csrfToken && !needsLogin && (
                     <details className="admin-blocks-panel"><summary><span><strong>Μπλοκάρισμα ωρών</strong><span className="admin-blocks-hint">Διαχείριση άδειας ή μη διαθέσιμων διαστημάτων</span></span><span className="admin-expand-label">Άνοιγμα / κλείσιμο</span></summary><AvailabilityBlocks csrfToken={csrfToken} onUnauthorized={handleUnauthorized} /></details>

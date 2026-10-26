@@ -9,3 +9,11 @@ export function matchesAppointmentFilters(appointment, amka = "", date = "") {
     const part = (type) => parts.find((item) => item.type === type).value;
     return `${part("year")}-${part("month")}-${part("day")}` === date;
 }
+
+export function getClinicDate(value = new Date()) {
+    const parts = clinicDateFormatter.formatToParts(value);
+    const part = (type) =>
+        parts.find((item) => item.type === type).value;
+
+    return `${part("year")}-${part("month")}-${part("day")}`;
+}

@@ -93,3 +93,11 @@
 .admin-app .admin-clear-filters {background:#fff;color:#29495b;border-color:#c5d3db;}
 .admin-app .admin-clear-filters:hover:not(:disabled) {background:#eaf0f3;}
 .admin-app .admin-filter-hint {font-size:13px;color:var(--admin-muted);margin:8px 0 22px;}
+.admin-app .appointment-card {grid-template-areas:"details status" "details actions" "private private";}
+.admin-app .admin-private-details {grid-area:private;border-top:1px solid var(--admin-border);padding-top:10px;margin-top:8px;min-width:0;}
+.admin-app .admin-private-details button {font-size:14px;min-height:44px;}
+.admin-app .admin-private-details dl {display:flex;flex-wrap:wrap;gap:16px 32px;margin:12px 0 0;}
+.admin-app .admin-private-details dd {overflow-wrap:anywhere;}
+.admin-app .admin-pagination {display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px;margin-top:20px;}
+.admin-app .admin-pagination button {min-height:44px;}
+@media(max-width:520px){.admin-app .appointment-card{grid-template-areas:"details" "status" "actions" "private";}}

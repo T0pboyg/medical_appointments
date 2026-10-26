@@ -19,6 +19,13 @@ Coverage:
 - Verify one database audit event and that the slot is free again.
 - Backdate a retained staff session beyond the 15-minute idle limit and verify patient cards are cleared.
 - Simulate a failed booking network request and verify an error, no success message and a usable retry button.
+- Verify Admin starts on clinic today, fetches the selected date/AMKA from the backend,
+  resets filters to today, preserves the selected date after cancellation and retries
+  list loading after a network error.
+- Verify page navigation, reset to page one when the date changes, and fetching
+  phone/AMKA only when details are opened; closing details removes them from view.
+  This navigation scenario uses synthetic intercepted responses; backend tests
+  separately verify real database pagination and the staff-only detail endpoint.
 
 The test entrypoint `backend/tests/e2e_server.py` is mounted only into the
 isolated backend and refuses to start without the explicit test-mode marker

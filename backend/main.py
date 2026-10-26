@@ -31,6 +31,11 @@ from availability_blocks import router as availability_blocks_router
 from medical_assistant import router as medical_assistant_router
 from availability_service import get_available_slots
 from staff_assistant import router as staff_assistant_router
+from fastapi import Query
+from database import (
+    get_appointments_page_from_db,
+    get_appointment_details_from_db,
+)
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
@@ -110,9 +115,41 @@ class AppointmentCreated(BaseModel):
     id: int
     starts_at: datetime
 
-@app.get("/")
-def read_root():
-    return {"message": "Το API ανανεώνεται αυτόματα"}
+
+@app.get(
+    "/appointments/page",
+    dependencies=[Depends(require_staff)],
+)
+def get_appointments_page(
+    response: Response,
+    appointment_date: date | None = None,
+    patient_AMKA: Annotated[
+        str,
+        StringConstraints(pattern=r"^[0-9]{11}$"),
+    ] | None = None,
+    page: int = Query(default=1, ge=1, le=10000),
+    page_size: int = Query(default=25, ge=1, le=100),
+):
+    response.headers["Cache-Control"] = "no-store"
+
+    selected_date = (
+        appointment_date
+        if appointment_date is not None
+        else datetime.now(ZoneInfo("Europe/Athens")).date()
+    )
+
+    if selected_date == date.max:
+        raise HTTPException(
+            status_code=422,
+            detail="Η ημερομηνία είναι εκτός υποστηριζόμενου εύρους.",
+        )
+
+    return get_appointments_page_from_db(
+        appointment_date=selected_date,
+        patient_amka=patient_AMKA,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @app.get(
@@ -121,19 +158,55 @@ def read_root():
 )
 def get_appointments(
     response: Response,
-    patient_AMKA: str | None = None,
+    appointment_date: date | None = None,
+    patient_AMKA: Annotated[
+        str,
+        StringConstraints(pattern=r"^[0-9]{11}$"),
+    ] | None = None,
 ):
     response.headers["Cache-Control"] = "no-store"
+    selected_date = (
+        appointment_date
+        if appointment_date is not None
+        else datetime.now(ZoneInfo("Europe/Athens")).date()
+    )
+    return get_appointments_from_db(
+        appointment_date=selected_date,
+        patient_amka=patient_AMKA,
+    )
 
-    stored_appointments = get_appointments_from_db()
-    if patient_AMKA:
-        unique_appointments = [
-            a for a in stored_appointments
-            if a["patient_AMKA"] == patient_AMKA
-            ]
-        return unique_appointments
-    return stored_appointments
+@app.get("/")
+def read_root():
+    return {"message": "Το API ανανεώνεται αυτόματα"}
 
+
+@app.get(
+    "/appointments/{appointment_id}",
+    dependencies=[Depends(require_staff)],
+)
+def get_appointment_details(
+    response: Response,
+    appointment_id: int,
+):
+    if appointment_id < 1:
+        raise HTTPException(
+            status_code=422,
+            detail="Μη έγκυρος αριθμός ραντεβού.",
+        )
+
+    appointment = get_appointment_details_from_db(
+        appointment_id
+    )
+
+    if appointment is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Το ραντεβού δεν βρέθηκε.",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    response.headers["Cache-Control"] = "no-store"
+    return appointment
 
 @app.post(
     "/appointments",

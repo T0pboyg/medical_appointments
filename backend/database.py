@@ -1,6 +1,8 @@
 import os
 import psycopg
 from psycopg.rows import dict_row
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 
 def check_connection():
@@ -63,21 +65,140 @@ def create_appointment_in_db(
 
             return cursor.fetchone()
 
-def get_appointments_from_db():
+def get_appointments_from_db(
+    appointment_date=None,
+    patient_amka=None,
+):
     database_url = os.environ["DATABASE_URL"]
+    conditions = []
+    parameters = []
 
-    with psycopg.connect(database_url, row_factory=dict_row) as connection:
+    if appointment_date is not None:
+        clinic_timezone = ZoneInfo("Europe/Athens")
+
+        start = datetime.combine(
+            appointment_date,
+            time.min,
+            tzinfo=clinic_timezone,
+        )
+        end = datetime.combine(
+            appointment_date + timedelta(days=1),
+            time.min,
+            tzinfo=clinic_timezone,
+        )
+
+        conditions.extend([
+            "starts_at >= %s",
+            "starts_at < %s",
+        ])
+        parameters.extend([start, end])
+
+    if patient_amka is not None:
+        conditions.append("patient_amka = %s")
+        parameters.append(patient_amka)
+
+    where_clause = (
+        "WHERE " + " AND ".join(conditions)
+        if conditions
+        else ""
+    )
+
+    with psycopg.connect(
+        database_url,
+        row_factory=dict_row,
+    ) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
-                """
+                f"""
                 SELECT id, patient_name, patient_phone, starts_at,
                        patient_amka AS "patient_AMKA", no_show,
                        cancelled_at
                 FROM appointments
-                ORDER BY id;
-                """
+                {where_clause}
+                ORDER BY starts_at, id;
+                """,
+                parameters,
             )
             return cursor.fetchall()
+
+
+def get_appointments_page_from_db(
+    *,
+    appointment_date,
+    patient_amka=None,
+    page=1,
+    page_size=25,
+):
+    clinic_timezone = ZoneInfo("Europe/Athens")
+
+    start = datetime.combine(
+        appointment_date,
+        time.min,
+        tzinfo=clinic_timezone,
+    )
+    end = datetime.combine(
+        appointment_date + timedelta(days=1),
+        time.min,
+        tzinfo=clinic_timezone,
+    )
+
+    offset = (page - 1) * page_size
+
+    with psycopg.connect(
+        os.environ["DATABASE_URL"],
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, patient_name, starts_at,
+                       no_show, cancelled_at
+                FROM appointments
+                WHERE starts_at >= %s
+                  AND starts_at < %s
+                  AND (
+                      %s::text IS NULL
+                      OR patient_amka = %s
+                  )
+                ORDER BY starts_at, id
+                LIMIT %s OFFSET %s;
+                """,
+                (
+                    start,
+                    end,
+                    patient_amka,
+                    patient_amka,
+                    page_size + 1,
+                    offset,
+                ),
+            )
+            rows = cursor.fetchall()
+
+    return {
+        "items": rows[:page_size],
+        "page": page,
+        "page_size": page_size,
+        "has_more": len(rows) > page_size,
+    }
+
+
+def get_appointment_details_from_db(appointment_id):
+    with psycopg.connect(
+        os.environ["DATABASE_URL"],
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, patient_name, patient_phone,
+                       patient_amka AS "patient_AMKA",
+                       starts_at, no_show, cancelled_at
+                FROM appointments
+                WHERE id = %s;
+                """,
+                (appointment_id,),
+            )
+            return cursor.fetchone()
 
 def delete_appointment_from_db(
     appointment_id,
