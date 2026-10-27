@@ -37,6 +37,7 @@ from database import (
     get_appointment_details_from_db,
 )
 from database import reschedule_appointment_in_db
+from database import get_appointment_counts_for_month
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
@@ -247,6 +248,24 @@ def get_appointments(
 @app.get("/")
 def read_root():
     return {"message": "Το API ανανεώνεται αυτόματα"}
+
+@app.get(
+    "/appointments/calendar",
+    dependencies=[Depends(require_staff)],
+)
+def get_appointments_calendar(
+    response: Response,
+    year: int = Query(ge=1, le=9998),
+    month: int = Query(ge=1, le=12),
+):
+    response.headers["Cache-Control"] = "no-store"
+
+    return {
+        "days": get_appointment_counts_for_month(
+            year=year,
+            month=month,
+        )
+    }
 
 
 @app.get(

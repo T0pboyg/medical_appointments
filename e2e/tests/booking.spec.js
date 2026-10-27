@@ -9,7 +9,7 @@ async function selectFutureDay(page) {
   await page.locator("button.calendar-day").filter({ hasText: new RegExp(`^${day.getDate()}$`) }).click();
   const times = page.getByRole("group", { name: "Ώρα ραντεβού" });
   await expect(times).toBeVisible();
-  return { date: `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,"0")}-${String(day.getDate()).padStart(2,"0")}`, times };
+  return { date: `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`, times };
 }
 
 async function book(page, name) {
@@ -126,9 +126,15 @@ test("admin pages summaries and loads private details only on demand", async ({ 
     const url = new URL(route.request().url());
     const number = Number(url.searchParams.get('page'));
     pages.push(number);
-    await route.fulfill({ json: { items: [{ id: number, patient_name: `Synthetic Page ${number}`,
-      starts_at: '2030-01-07T10:00:00+02:00', no_show: false, cancelled_at: null }],
-      page: number, page_size: 25, has_more: number === 1 } });
+    await route.fulfill({
+      json: {
+        items: [{
+          id: number, patient_name: `Synthetic Page ${number}`,
+          starts_at: '2030-01-07T10:00:00+02:00', no_show: false, cancelled_at: null
+        }],
+        page: number, page_size: 25, has_more: number === 1
+      }
+    });
   });
   await page.route('**/api/appointments/1', async route => {
     detailRequests++;
@@ -159,11 +165,15 @@ test("admin date range validates limits and preserves range across pages", async
     const params = new URL(route.request().url()).searchParams;
     requests.push(Object.fromEntries(params));
     const number = Number(params.get('page'));
-    await route.fulfill({ json: {
-      items: [{ id: number, patient_name: `Range Synthetic ${number}`,
-        starts_at: '2030-01-07T10:00:00+02:00', no_show: false, cancelled_at: null }],
-      page: number, page_size: 25, has_more: number === 1,
-    } });
+    await route.fulfill({
+      json: {
+        items: [{
+          id: number, patient_name: `Range Synthetic ${number}`,
+          starts_at: '2030-01-07T10:00:00+02:00', no_show: false, cancelled_at: null
+        }],
+        page: number, page_size: 25, has_more: number === 1,
+      }
+    });
   });
   await login(page);
   await selectAdminRange(page, '2030-01-01', '2030-01-31');
@@ -189,5 +199,97 @@ test("admin date range validates limits and preserves range across pages", async
   await expect(page.getByText('Συμπλήρωσε και τις δύο ημερομηνίες.', { exact: true })).toBeVisible();
   await page.waitForTimeout(400);
   expect(requests).toHaveLength(count);
+  expect(errors).toEqual([]);
+});
+
+
+test("admin calendar selects a day and filters the appointment list", async ({ page }) => {
+  const errors = [];
+  const listRequests = [];
+
+  page.on("pageerror", error => errors.push(error.message));
+
+  await page.route("**/api/appointments/calendar?*", async route => {
+    const params = new URL(route.request().url()).searchParams;
+    const year = params.get("year").padStart(4, "0");
+    const month = params.get("month").padStart(2, "0");
+
+    await route.fulfill({
+      json: {
+        days: [
+          { date: `${year}-${month}-07`, count: 3 },
+        ],
+      },
+    });
+  });
+
+  await page.route("**/api/appointments/page?*", async route => {
+    const params = new URL(route.request().url()).searchParams;
+    listRequests.push(Object.fromEntries(params));
+
+    await route.fulfill({
+      json: {
+        items: [],
+        page: Number(params.get("page")),
+        page_size: 25,
+        has_more: false,
+      },
+    });
+  });
+
+  await login(page);
+
+  const calendar = page.getByRole("region", {
+    name: "Ημερολόγιο ραντεβού",
+    exact: true,
+  });
+
+  await expect(calendar).toBeVisible();
+
+  const countedDay = calendar.getByRole("button", {
+    name: /^\d{4}-\d{2}-07: 3 μη ακυρωμένα ραντεβού$/,
+  });
+
+  await expect(countedDay).toBeVisible();
+
+  const date = (await countedDay.getAttribute("aria-label"))
+    .split(":")[0];
+
+  await countedDay.click();
+
+  await expect(
+    page.getByLabel("Από ημερομηνία", { exact: true })
+  ).toHaveValue(date);
+
+  await expect(
+    page.getByLabel("Έως ημερομηνία", { exact: true })
+  ).toHaveValue(date);
+
+  await expect.poll(() => listRequests.at(-1)?.date_from)
+    .toBe(date);
+
+  expect(listRequests.at(-1)).toMatchObject({
+    date_from: date,
+    date_to: date,
+    page: "1",
+  });
+
+  await expect(countedDay).toHaveAttribute("aria-pressed", "true");
+
+  await calendar.getByRole("button", {
+    name: "Επόμενος μήνας ημερολογίου admin",
+    exact: true,
+  }).click();
+
+  const nextCountedDay = calendar.getByRole("button", {
+    name: /^\d{4}-\d{2}-07: 3 μη ακυρωμένα ραντεβού$/,
+  });
+
+  await expect(nextCountedDay).toBeVisible();
+  await expect(nextCountedDay).not.toHaveAttribute(
+    "aria-label",
+    `${date}: 3 μη ακυρωμένα ραντεβού`
+  );
+
   expect(errors).toEqual([]);
 });

@@ -760,3 +760,43 @@
             "reschedule";
     }
 }
+
+.admin-app .admin-calendar {
+    margin: 20px 0;
+}
+
+.admin-app .admin-calendar>p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--admin-muted);
+}
+
+.admin-app .admin-calendar .calendar-container {
+    max-width: 620px;
+}
+
+.admin-app .admin-calendar .calendar-header button {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+}
+
+.admin-app .admin-calendar .calendar-day {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    min-height: 60px;
+    aspect-ratio: auto;
+}
+
+.admin-app .admin-calendar .calendar-day small {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.admin-app .admin-calendar .calendar-day:focus-visible {
+    outline: 3px solid #258bcb;
+    outline-offset: 2px;
+}

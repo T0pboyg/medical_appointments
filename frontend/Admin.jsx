@@ -4,6 +4,7 @@ import StaffAssistant from "./StaffAssistant.jsx";
 import "./Admin.css";
 import { getClinicDate } from "./appointmentFilters.js";
 import RescheduleAppointment from "./RescheduleAppointment.jsx";
+import AdminCalendar from "./AdminCalendar.jsx";
 
 function AppointmentDetails({ id, onUnauthorized }) {
     const [open, setOpen] = useState(false);
@@ -360,7 +361,20 @@ export default function Admin() {
                     onCancelled={() => setReloadKey((value) => value + 1)} />}
                 <section className="card">
                     <h2>Ραντεβού</h2><p className="admin-section-note">Ημερομηνίες και ώρες Ελλάδας</p>
-
+                    {csrfToken && !needsLogin && (
+                        <AdminCalendar
+                            selectedDate={dateFrom === dateTo ? dateFrom : ""}
+                            reloadKey={reloadKey}
+                            onUnauthorized={handleUnauthorized}
+                            onSelectDate={day => {
+                                setDateFrom(day);
+                                setDateTo(day);
+                                setPage(1);
+                                setNotice("");
+                                setReloadKey(value => value + 1);
+                            }}
+                        />
+                    )}
                     <div className="admin-filters" role="search" aria-label="Αναζήτηση ραντεβού">
                         <div className="form-group">
                             <label htmlFor="admin-search-amka">

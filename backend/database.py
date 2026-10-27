@@ -741,3 +741,54 @@ def get_availability_blocks():
             )
 
             return cursor.fetchall()
+
+def get_appointment_counts_for_month(*, year, month):
+    if not 1 <= year <= 9998 or not 1 <= month <= 12:
+        raise ValueError("Invalid calendar month.")
+
+    clinic_timezone = ZoneInfo("Europe/Athens")
+    start = datetime(
+        year, month, 1,
+        tzinfo=clinic_timezone,
+    )
+
+    if month == 12:
+        end = datetime(
+            year + 1, 1, 1,
+            tzinfo=clinic_timezone,
+        )
+    else:
+        end = datetime(
+            year, month + 1, 1,
+            tzinfo=clinic_timezone,
+        )
+
+    with psycopg.connect(
+        os.environ["DATABASE_URL"],
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    (starts_at AT TIME ZONE 'Europe/Athens')::date
+                        AS appointment_day,
+                    COUNT(*) AS appointment_count
+                FROM appointments
+                WHERE starts_at >= %s
+                  AND starts_at < %s
+                  AND cancelled_at IS NULL
+                GROUP BY
+                    (starts_at AT TIME ZONE 'Europe/Athens')::date
+                ORDER BY appointment_day;
+                """,
+                (start, end),
+            )
+
+            return [
+                {
+                    "date": row["appointment_day"].isoformat(),
+                    "count": row["appointment_count"],
+                }
+                for row in cursor.fetchall()
+            ]
