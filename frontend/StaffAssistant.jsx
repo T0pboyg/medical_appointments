@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./StaffAssistant.css";
+import StaffAppointmentDetails from "./StaffAppointmentDetails.jsx";
 
 export default function StaffAssistant({ csrfToken, onUnauthorized, onCancelled }) {
     const [open, setOpen] = useState(false);
@@ -8,6 +9,7 @@ export default function StaffAssistant({ csrfToken, onUnauthorized, onCancelled 
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
     const [selected, setSelected] = useState(null);
+    const [detailsId, setDetailsId] = useState(null);
     const active = useRef(null);
     const input = useRef(null);
     useEffect(() => () => active.current?.abort(), []);
@@ -22,6 +24,7 @@ export default function StaffAssistant({ csrfToken, onUnauthorized, onCancelled 
         setSelected(null);
         setError("");
         setBusy(false);
+        setDetailsId(null);
     }
 
     async function request(path, body) {
@@ -64,6 +67,7 @@ export default function StaffAssistant({ csrfToken, onUnauthorized, onCancelled 
 
     function submit(event) {
         event.preventDefault();
+        setDetailsId(null);
         if (message.trim().length < 3) return;
         setReply(null);
         setSelected(null);
@@ -95,6 +99,13 @@ export default function StaffAssistant({ csrfToken, onUnauthorized, onCancelled 
                 {reply?.appointments?.map(appointment => <article className="staff-assistant-result" key={appointment.id}>
                     <strong>#{appointment.id} — {appointment.patient_name}</strong>
                     <p>{format(appointment.starts_at)}</p>
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setDetailsId(appointment.id)}
+                    >
+                        Προβολή ραντεβού
+                    </button>
                     {appointment.confirmation_token && <button type="button" disabled={busy}
                         onClick={() => setSelected(appointment)}>Επιλογή για ακύρωση</button>}
                 </article>)}
@@ -108,5 +119,13 @@ export default function StaffAssistant({ csrfToken, onUnauthorized, onCancelled 
                 <button type="button" disabled={busy} onClick={() => setSelected(null)}>Όχι, επιστροφή</button>
             </div>}
         </div>}
+        {open && detailsId !== null && (
+            <StaffAppointmentDetails
+                key={detailsId}
+                appointmentId={detailsId}
+                onUnauthorized={onUnauthorized}
+                onClose={() => setDetailsId(null)}
+            />
+        )}
     </section>;
 }

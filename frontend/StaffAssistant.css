@@ -1,9 +1,95 @@
-.staff-assistant { margin-block: 1.5rem; }
-.staff-assistant-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-.staff-assistant form { display: grid; gap: .75rem; margin-block: 1rem; }
-.staff-assistant textarea { width: 100%; box-sizing: border-box; font: inherit; padding: .75rem; border: 1px solid #94a3b8; border-radius: .5rem; resize: vertical; }
-.staff-assistant-hint { color: #475569; font-size: .9rem; line-height: 1.6; }
-.staff-assistant-answer { white-space: pre-wrap; }
-.staff-assistant-result { border: 1px solid #cbd5e1; border-radius: .5rem; padding: 1rem; margin-block: .75rem; }
-.staff-assistant-confirm { border: 2px solid #b45309; background: #fffbeb; color: #422006; border-radius: .5rem; padding: 1rem; margin-top: 1rem; }
-.staff-assistant-confirm button { margin: .25rem .5rem .25rem 0; }
+.staff-assistant {
+    margin-block: 1.5rem;
+}
+
+.staff-assistant-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.staff-assistant form {
+    display: grid;
+    gap: .75rem;
+    margin-block: 1rem;
+}
+
+.staff-assistant textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font: inherit;
+    padding: .75rem;
+    border: 1px solid #94a3b8;
+    border-radius: .5rem;
+    resize: vertical;
+}
+
+.staff-assistant-hint {
+    color: #475569;
+    font-size: .9rem;
+    line-height: 1.6;
+}
+
+.staff-assistant-answer {
+    white-space: pre-wrap;
+}
+
+.staff-assistant-result {
+    border: 1px solid #cbd5e1;
+    border-radius: .5rem;
+    padding: 1rem;
+    margin-block: .75rem;
+}
+
+.staff-assistant-confirm {
+    border: 2px solid #b45309;
+    background: #fffbeb;
+    color: #422006;
+    border-radius: .5rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.staff-assistant-confirm button {
+    margin: .25rem .5rem .25rem 0;
+}
+
+.staff-appointment-dialog {
+    box-sizing: border-box;
+    width: min(560px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    padding: 24px;
+    border: 1px solid #c5d3db;
+    border-radius: 16px;
+    color: #183346;
+    background: white;
+}
+
+.staff-appointment-dialog::backdrop {
+    background: rgb(0 0 0 / 45%);
+}
+
+.staff-appointment-dialog-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.staff-appointment-dialog button {
+    min-height: 44px;
+}
+
+.staff-appointment-dialog dt {
+    margin-top: 16px;
+    font-weight: 600;
+}
+
+.staff-appointment-dialog dd {
+    margin: 4px 0 0;
+    overflow-wrap: anywhere;
+}

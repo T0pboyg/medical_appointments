@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, Validation
 from assistant_knowledge import normalize
 from assistant_service import _generation, AssistantBusy, AssistantUnavailable
 from availability_service import CLINIC_TIMEZONE
+from calendar import monthrange
 
 
 class StaffIntent(BaseModel):
@@ -18,6 +19,95 @@ class StaffIntent(BaseModel):
     action: Literal['list', 'availability', 'cancel', 'unsupported']
     patient_name: Annotated[str, StringConstraints(min_length=2, max_length=100)] | None
     appointment_id: Annotated[int, Field(gt=0)] | None
+
+NAMED_MONTH_PATTERNS = (
+    (1, r"ιανουαρι(?:οσ|ου|ο)|γεναρ(?:ησ|η)"),
+    (2, r"φεβρουαρι(?:οσ|ου|ο)|φλεβαρ(?:ησ|η)"),
+    (3, r"μαρτ(?:ιοσ|ιου|ιο|ησ|η)"),
+    (4, r"απριλι(?:οσ|ου|ο)|απριλ(?:ησ|η)"),
+    (5, r"μαι(?:οσ|ου|ο|ησ|η)"),
+    (6, r"ιουνι(?:οσ|ου|ο)|ιουν(?:ησ|η)"),
+    (7, r"ιουλι(?:οσ|ου|ο)|ιουλ(?:ησ|η)"),
+    (8, r"αυγουστ(?:οσ|ου|ο)"),
+    (9, r"σεπτεμβρι(?:οσ|ου|ο)|σεπτεμβρ(?:ησ|η)"),
+    (10, r"οκτωβρι(?:οσ|ου|ο)|οκτωβρ(?:ησ|η)"),
+    (11, r"νοεμβρι(?:οσ|ου|ο)|νοεμβρ(?:ησ|η)"),
+    (12, r"δεκεμβρι(?:οσ|ου|ο)|δεκεμβρ(?:ησ|η)"),
+)
+
+NAMED_MONTH_RE = re.compile(
+    r"\b(?:"
+    + "|".join(pattern for _, pattern in NAMED_MONTH_PATTERNS)
+    + r")\b"
+)
+
+
+def has_named_month(message):
+    return NAMED_MONTH_RE.search(normalize(message)) is not None
+
+
+def resolve_named_month(message, *, now=None):
+    query = normalize(message)
+    matches = list(NAMED_MONTH_RE.finditer(query))
+
+    if len(matches) != 1:
+        return None
+
+    match = matches[0]
+    month = next(
+        number
+        for number, pattern in NAMED_MONTH_PATTERNS
+        if re.fullmatch(pattern, match.group())
+    )
+
+    today = (
+        now or datetime.now(CLINIC_TIMEZONE)
+    ).astimezone(CLINIC_TIMEZONE).date()
+
+    year = today.year
+    consumed_end = match.end()
+
+    # Accept an explicit year only immediately after the month name.
+    year_match = re.match(
+        r"\s+([0-9]{4})\b",
+        query[consumed_end:],
+    )
+    if year_match:
+        year = int(year_match.group(1))
+        consumed_end += year_match.end()
+
+    if not 1 <= year <= 9999:
+        return None
+
+    remaining = query[:match.start()] + query[consumed_end:]
+
+    # Appointment IDs are not dates.
+    remaining = re.sub(
+        r"(?:#\s*|ραντεβου\s+)[0-9]+\b",
+        "",
+        remaining,
+    )
+
+    # Reject extra dates, years, weekdays or relative periods.
+    if re.search(
+        r"\d|"
+        r"\b(?:ε)?βδομαδ\w*\b|"
+        r"\bμην(?:α|ε|ο)\w*\b|"
+        r"\b(?:"
+        r"επομεν\w*|προηγουμεν\w*|περασμεν\w*|"
+        r"αυτ\w*|τρεχον\w*|τρεχουσ\w*|"
+        r"σημερα|αυριο|μεθαυριο|χθεσ|μεχρι|εωσ|απο|"
+        r"δευτερ\w*|τριτη\w*|τεταρτ\w*|πεμπτ\w*|"
+        r"παρασκευ\w*|σαββατ\w*|κυριακ\w*"
+        r")\b",
+        remaining,
+    ):
+        return None
+
+    return (
+        date(year, month, 1),
+        date(year, month, monthrange(year, month)[1]),
+    )
 
 
 def resolve_day(message, *, now=None):
@@ -51,9 +141,78 @@ def resolve_day(message, *, now=None):
     return days[0] if days and len(set(days)) == 1 else None
 
 
-def resolve_period(message, *, now=None):
-    """Inclusive day/week boundaries, computed by Python in clinic time."""
+def resolve_month(message, *, now=None):
+    """Resolve one explicit relative calendar month in clinic time."""
     query = normalize(message)
+
+    matches = list(re.finditer(
+        r"\b("
+        r"επομεν\w*|"
+        r"προηγουμεν\w*|"
+        r"περασμεν\w*|"
+        r"αυτ\w*|"
+        r"τρεχον\w*|"
+        r"τρεχουσ\w*"
+        r")\s+(?:το[νυ]?\s+)?μηνα\w*\b",
+        query,
+    ))
+
+    if len(matches) != 1:
+        return None
+
+    match = matches[0]
+    remaining = query[:match.start()] + query[match.end():]
+
+    # Do not silently discard another date or time-period restriction.
+    if re.search(
+        r"\d|"
+        r"\b(?:ε)?βδομαδ\w*\b|"
+        r"\bμην(?:α|ε|ο)\w*\b|"
+        r"\b(?:"
+        r"επομεν\w*|προηγουμεν\w*|περασμεν\w*|"
+        r"αυτ\w*|τρεχον\w*|τρεχουσ\w*|"
+        r"σημερα|αυριο|μεθαυριο|χθεσ|μεχρι|εωσ|απο|"
+        r"δευτερ\w*|τριτη\w*|τεταρτ\w*|πεμπτ\w*|"
+        r"παρασκευ\w*|σαββατ\w*|κυριακ\w*"
+        r")\b",
+        remaining,
+    ):
+        return None
+
+    today = (
+        now or datetime.now(CLINIC_TIMEZONE)
+    ).astimezone(CLINIC_TIMEZONE).date()
+
+    kind = match.group(1)
+
+    if kind.startswith("επομεν"):
+        offset = 1
+    elif kind.startswith(("προηγουμεν", "περασμεν")):
+        offset = -1
+    else:
+        offset = 0
+
+    month_index = today.year * 12 + today.month - 1 + offset
+    year, zero_based_month = divmod(month_index, 12)
+    month = zero_based_month + 1
+
+    if not 1 <= year <= 9999:
+        return None
+
+    return (
+        date(year, month, 1),
+        date(year, month, monthrange(year, month)[1]),
+    )
+
+
+def resolve_period(message, *, now=None):
+    """Inclusive day/week/month boundaries in clinic time."""
+    query = normalize(message)
+
+    if has_named_month(message):
+        return resolve_named_month(message, now=now)
+    if re.search(r"\bμην(?:α|ε|ο)\w*\b", query):
+        return resolve_month(message, now=now)
     if not re.search(r'\b(?:ε)?βδομαδ\w*\b', query):
         day = resolve_day(message, now=now)
         return (day, day) if day else None

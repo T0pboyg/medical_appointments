@@ -23,6 +23,7 @@ from auth import require_staff_change
 from availability_service import CLINIC_TIMEZONE, get_available_slots
 from database import find_staff_appointments, cancel_appointment_in_db
 from staff_assistant_intent import extract_intent, resolve_day, resolve_period
+from staff_assistant_intent import has_named_month
 
 router = APIRouter(prefix='/staff-assistant', tags=['staff-assistant'])
 _attempts = {}
@@ -95,6 +96,10 @@ def prepare_response(message, intent, session, *, now=None):
     if action == 'cancel' and period and period[0] != period[1]:
         return reply('Για ακύρωση χρειάζομαι μία συγκεκριμένη ημέρα και όνομα ή αριθμό ραντεβού (#ID). Μπορείς πρώτα να ζητήσεις τα ραντεβού της εβδομάδας. Δεν έγινε αλλαγή.')
     date_hint = bool(re.search(r'\d[/\-]\d|\b(?:σημερα|αυριο|μεθαυριο|χθεσ|δευτερ\w*|τριτη\w*|τεταρτ\w*|πεμπτ\w*|παρασκευ\w*|σαββατ\w*|κυριακ\w*|εβδομαδ\w*)\b', query))
+    date_hint = date_hint or bool(
+        re.search(r"\bμην(?:α|ε|ο)\w*\b", query)
+    )
+    date_hint = date_hint or has_named_month(message)
     without_id = re.sub(rf'(?:#\s*|ραντεβου\s+){appointment_id}\b', '', query) if appointment_id else query
     date_hint = date_hint or bool(re.search(r'\d', without_id)) or any(term in query for term in (
         'ιανουαρ', 'φεβρουαρ', 'μαρτι', 'απριλ', 'μαιου', 'ιουνι', 'ιουλι', 'αυγουστ', 'σεπτεμβρ', 'οκτωβρ', 'νοεμβρ', 'δεκεμβρ', 'ημερεσ', 'μερεσ',
