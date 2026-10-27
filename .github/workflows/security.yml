@@ -62,6 +62,37 @@ jobs:
       - name: Apply migrations to temporary database
         run: python migrate.py
 
+      - name: Prepare application role for permission tests
+        run: |
+          python - <<'PY'
+          import os
+          import psycopg
+
+          with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
+              connection.execute("""
+                  CREATE ROLE appointments_app NOLOGIN;
+
+                  GRANT USAGE ON SCHEMA public
+                  TO appointments_app;
+
+                  GRANT SELECT ON TABLE public.appointments
+                  TO appointments_app;
+
+                  GRANT SELECT (
+                      id,
+                      occurred_at,
+                      actor_issuer,
+                      actor_subject,
+                      action,
+                      appointment_id,
+                      previous_starts_at,
+                      new_starts_at
+                  )
+                  ON TABLE public.audit_events
+                  TO appointments_app;
+              """)
+          PY
+
       - name: Run backend tests
         run: python -m unittest discover -s tests -p "test_*.py" -v
 
