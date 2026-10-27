@@ -1,0 +1,18 @@
+# Use with: docker compose -f compose.yaml -f compose.static.yaml ...
+services:
+  frontend:
+    image: medical-appointments-frontend-static:local
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    working_dir: /srv
+    command: !reset null
+    volumes: !reset []
+    depends_on:
+      backend:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:5173/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

@@ -1,0 +1,10 @@
+# Allow only the sources needed by Vite; secrets never enter the build context.
+*
+!package.json
+!package-lock.json
+!*.jsx
+!*.css
+!*.js
+!index.html
+!Caddyfile
+!Dockerfile

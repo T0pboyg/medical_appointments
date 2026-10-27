@@ -1,0 +1,11 @@
+# Same isolated backend and browser journey, served through the real Caddy image.
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:5173/"]
+  runner:
+    environment:
+      STATIC_FRONTEND: "1"

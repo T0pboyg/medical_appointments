@@ -12,20 +12,28 @@ jobs:
   browser-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - frontend: vite
+            compose-files: -f compose.e2e.yaml
+          - frontend: static
+            compose-files: -f compose.e2e.yaml -f compose.e2e.static.yaml
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Run isolated browser journey
-        run: docker compose -p medical-appointments-e2e -f compose.e2e.yaml up --build --abort-on-container-exit --exit-code-from runner
+        run: docker compose -p medical-appointments-e2e ${{ matrix.compose-files }} up --build --abort-on-container-exit --exit-code-from runner
       - name: Upload synthetic failure traces
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-test-failures
+          name: browser-test-failures-${{ matrix.frontend }}
           path: e2e/test-results/
           retention-days: 7
           if-no-files-found: ignore
       - name: Stop isolated test environment
         if: always()
-        run: docker compose -p medical-appointments-e2e -f compose.e2e.yaml down --remove-orphans
+        run: docker compose -p medical-appointments-e2e ${{ matrix.compose-files }} down --remove-orphans

@@ -1,5 +1,9 @@
 # Isolated browser journey tests
 
+For the built Caddy frontend, add `-f compose.e2e.static.yaml` after
+`-f compose.e2e.yaml` in both commands below. The same browser journey runs
+with additional static asset, SPA, cache and proxy-header checks. CI runs both modes.
+
 ```powershell
 docker compose -f compose.e2e.yaml up --build --abort-on-container-exit --exit-code-from runner
 docker compose -f compose.e2e.yaml down --remove-orphans
