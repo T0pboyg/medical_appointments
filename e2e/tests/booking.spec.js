@@ -333,9 +333,11 @@ const staffDetailsFixture = {
 for (const location of ['list', 'assistant']) {
   test(`reschedule calendar selects dates and clears old slots in ${location}`, async ({ page }) => {
     await page.clock.setFixedTime(new Date('2030-01-07T07:00:00Z'));
-    await page.route('**/api/appointments/page?*', route => route.fulfill({ json: {
-      items: [staffDetailsFixture], page: 1, page_size: 25, has_more: false,
-    } }));
+    await page.route('**/api/appointments/page?*', route => route.fulfill({
+      json: {
+        items: [staffDetailsFixture], page: 1, page_size: 25, has_more: false,
+      }
+    }));
     await page.route('**/api/availability?*', route => {
       const day = new URL(route.request().url()).searchParams.get('date');
       return route.fulfill({ json: day === '2030-01-08' ? ['11:00'] : ['10:30'] });
@@ -607,4 +609,104 @@ test("staff assistant details clear results when the server returns 401", async 
   await expect(page.getByText(
     staffDetailsFixture.patient_phone, { exact: true }
   )).toHaveCount(0);
+});
+
+
+test("admin summary stays on today and supports manual refresh", async ({ page }) => {
+  let requests = 0;
+
+  await page.route("**/api/appointments/summary", route => {
+    requests++;
+
+    return route.fulfill({
+      json: {
+        date: "2030-01-07",
+        appointments_count: requests === 1 ? 5 : 6,
+        next_starts_at: "2030-01-07T10:30:00+02:00",
+        available_slots_count: 8,
+        no_show_count: 1,
+      },
+    });
+  });
+
+  await login(page);
+
+  const summary = page.getByRole("region", {
+    name: "Η ημέρα στο ιατρείο",
+    exact: true,
+  });
+
+  await expect(summary).toBeVisible();
+  await expect(summary.getByText("07/01/2030", {
+    exact: false,
+  })).toBeVisible();
+
+  const appointmentsCard = summary.locator(
+    ".admin-summary-grid > div"
+  ).filter({ hasText: "Ραντεβού σήμερα" });
+
+  await expect(appointmentsCard.locator("dd")).toHaveText("5");
+
+  await page.getByLabel("Από ημερομηνία", {
+    exact: true,
+  }).fill("2030-02-01");
+
+  await page.getByLabel("Έως ημερομηνία", {
+    exact: true,
+  }).fill("2030-02-02");
+
+  await expect(summary.getByText("07/01/2030", {
+    exact: false,
+  })).toBeVisible();
+
+  await summary.getByRole("button", {
+    name: "Ανανέωση σύνοψης",
+    exact: true,
+  }).click();
+
+  await expect(appointmentsCard.locator("dd")).toHaveText("6");
+  expect(requests).toBe(2);
+});
+
+test("admin summary shows an error and can retry without displaying fake zeros", async ({ page }) => {
+  let fail = true;
+
+  await page.route("**/api/appointments/summary", route =>
+    fail
+      ? route.abort("failed")
+      : route.fulfill({
+        json: {
+          date: "2030-01-07",
+          appointments_count: 0,
+          next_starts_at: null,
+          available_slots_count: 16,
+          no_show_count: 0,
+        },
+      })
+  );
+
+  await login(page);
+
+  const summary = page.getByRole("region", {
+    name: "Η ημέρα στο ιατρείο",
+    exact: true,
+  });
+
+  await expect(summary.getByRole("alert")).toHaveText(
+    "Δεν φορτώθηκε η σύνοψη της ημέρας."
+  );
+  await expect(summary.locator(".admin-summary-grid")).toHaveCount(0);
+
+  fail = false;
+
+  await summary.getByRole("button", {
+    name: "Ανανέωση σύνοψης",
+    exact: true,
+  }).click();
+
+  await expect(summary.getByRole("alert")).toHaveCount(0);
+  await expect(summary.getByText(
+    "Κανένα επόμενο σήμερα", { exact: true }
+  )).toBeVisible();
+  await expect(summary.locator(".admin-summary-grid")).toBeVisible();
 });

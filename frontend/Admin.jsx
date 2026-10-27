@@ -6,6 +6,7 @@ import { getClinicDate } from "./appointmentFilters.js";
 import RescheduleAppointment from "./RescheduleAppointment.jsx";
 import AdminCalendar from "./AdminCalendar.jsx";
 import AppointmentHistory from "./AppointmentHistory.jsx";
+import AdminSummary from "./AdminSummary.jsx";
 
 function AppointmentDetails({ id, onUnauthorized }) {
     const [open, setOpen] = useState(false);
@@ -368,6 +369,12 @@ export default function Admin() {
                 {csrfToken && !needsLogin && <StaffAssistant csrfToken={csrfToken} onUnauthorized={handleUnauthorized}
                     onCancelled={() => setReloadKey((value) => value + 1)}
                     onRescheduled={() => setReloadKey((value) => value + 1)} />}
+                {csrfToken && !needsLogin && (
+                    <AdminSummary
+                        reloadKey={reloadKey}
+                        onUnauthorized={handleUnauthorized}
+                    />
+                )}
                 <section className="card">
                     <h2>Ραντεβού</h2><p className="admin-section-note">Ημερομηνίες και ώρες Ελλάδας</p>
                     {csrfToken && !needsLogin && (

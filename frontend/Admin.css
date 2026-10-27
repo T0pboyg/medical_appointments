@@ -800,6 +800,76 @@
     outline: 3px solid #258bcb;
     outline-offset: 2px;
 }
-.admin-app .admin-reschedule .booking-calendar { width: 100%; box-sizing: border-box; }
-.admin-app .admin-reschedule .booking-calendar .calendar-day { width: 100%; min-width: 0; padding: 0; font-size: 14px; }
-.admin-app .admin-reschedule .booking-calendar .calendar-day.disabled { cursor: not-allowed; }
+
+.admin-app .admin-reschedule .booking-calendar {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.admin-app .admin-reschedule .booking-calendar .calendar-day {
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    font-size: 14px;
+}
+
+.admin-app .admin-reschedule .booking-calendar .calendar-day.disabled {
+    cursor: not-allowed;
+}
+
+
+.admin-app .admin-summary-heading {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-app .admin-summary-heading button {
+    min-height: 44px;
+}
+
+.admin-app .admin-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin: 20px 0 0;
+}
+
+.admin-app .admin-summary-grid>div {
+    padding: 18px;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    background: #f8fbff;
+    min-width: 0;
+}
+
+.admin-app .admin-summary-grid dt {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.admin-app .admin-summary-grid dd {
+    margin: 10px 0;
+    font-size: 24px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.admin-app .admin-summary-grid small {
+    color: var(--admin-muted);
+    line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+    .admin-app .admin-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 520px) {
+    .admin-app .admin-summary-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

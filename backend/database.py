@@ -857,3 +857,43 @@ def get_appointment_history_from_db(
         "page_size": page_size,
         "has_more": len(rows) > page_size,
     }
+
+
+def get_appointment_summary_for_date(appointment_date, *, now):
+    clinic_timezone = ZoneInfo("Europe/Athens")
+
+    start = datetime.combine(
+        appointment_date,
+        time.min,
+        tzinfo=clinic_timezone,
+    )
+    end = datetime.combine(
+        appointment_date + timedelta(days=1),
+        time.min,
+        tzinfo=clinic_timezone,
+    )
+
+    with psycopg.connect(
+        os.environ["DATABASE_URL"],
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    COUNT(*) AS appointments_count,
+                    COUNT(*) FILTER (
+                        WHERE no_show = TRUE
+                    ) AS no_show_count,
+                    MIN(starts_at) FILTER (
+                        WHERE starts_at > %s
+                          AND no_show = FALSE
+                    ) AS next_starts_at
+                FROM appointments
+                WHERE starts_at >= %s
+                  AND starts_at < %s
+                  AND cancelled_at IS NULL;
+                """,
+                (now, start, end),
+            )
+            return cursor.fetchone()

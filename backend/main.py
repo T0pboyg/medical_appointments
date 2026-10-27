@@ -40,6 +40,7 @@ from database import reschedule_appointment_in_db
 from database import get_appointment_counts_for_month
 from fastapi import Path
 from database import get_appointment_history_from_db
+from admin_summary import get_admin_summary
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
@@ -268,6 +269,15 @@ def get_appointments_calendar(
             month=month,
         )
     }
+
+
+@app.get(
+    "/appointments/summary",
+    dependencies=[Depends(require_staff)],
+)
+def get_appointments_summary(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return get_admin_summary()
 
 
 @app.get(
