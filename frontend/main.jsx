@@ -2,11 +2,10 @@ import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import Admin from "./Admin.jsx";
 import MedicalAssistant from "./MedicalAssistant.jsx";
+import BookingCalendar from "./BookingCalendar.jsx";
+import { clinicSlotToIso } from "./appointmentFilters.js";
 
 function App() {
-    const [calendarMonth, setCalendarMonth] = useState(
-        () => new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    );
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedTime, setSelectedTime] = useState("");
     const [message, setMessage] = useState("");
@@ -61,32 +60,6 @@ function App() {
         return () => controller.abort();
     }, [selectedDate]);
 
-    const monthTitle = calendarMonth.toLocaleDateString("el-GR", {
-        month: "long",
-        year: "numeric",
-    });
-
-    function changeMonth(offset) {
-        setCalendarMonth(
-            (currentMonth) =>
-                new Date(
-                    currentMonth.getFullYear(),
-                    currentMonth.getMonth() + offset,
-                    1
-                )
-        );
-    }
-
-    const year = calendarMonth.getFullYear();
-    const month = calendarMonth.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOffset = (new Date(year, month, 1).getDay() + 6) % 7;
-
-    const calendarCells = [
-        ...Array(firstDayOffset).fill(null),
-        ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
-    ];
-
     const availableTimeSlots = serverTimeSlots;
 
     async function handleSubmit(event) {
@@ -102,7 +75,7 @@ function App() {
         }
 
         const selectedDateTime = new Date(
-            `${selectedDate}T${selectedTime}:00`
+            clinicSlotToIso(selectedDate, selectedTime)
         );
 
         if (selectedDateTime <= new Date()) {
@@ -232,83 +205,15 @@ function App() {
                         <div className="form-group">
                             <p className="section-label">Ημέρα &amp; ώρα <span>Δευτέρα – Παρασκευή</span></p>
 
-                            <div id="custom-calendar" className="calendar-container">
-                                <div className="calendar-header">
-                                    <button
-                                        type="button"
-                                        id="prev-month"
-                                        aria-label="Προηγούμενος μήνας"
-                                        onClick={() => changeMonth(-1)}
-                                    >
-                                        &lt;
-                                    </button>
-
-                                    <span id="month-year-display">{monthTitle}</span>
-
-                                    <button
-                                        type="button"
-                                        id="next-month"
-                                        aria-label="Επόμενος μήνας"
-                                        onClick={() => changeMonth(1)}
-                                    >
-                                        &gt;
-                                    </button>
-                                </div>
-
-                                <div className="calendar-grid" id="calendar-days">
-                                    {["Δε", "Τρ", "Τε", "Πε", "Πα", "Σα", "Κυ"].map((label) => (
-                                        <span key={label}>{label}</span>
-                                    ))}
-
-                                    {calendarCells.map((day, index) => {
-                                        if (day === null) {
-                                            return <span key={`empty-${index}`} />;
-                                        }
-
-                                        const cellDate = new Date(year, month, day);
-                                        const weekday = cellDate.getDay();
-                                        const isWeekend = weekday === 0 || weekday === 6;
-
-                                        const today = new Date();
-                                        today.setHours(0, 0, 0, 0);
-
-                                        const isPastDay = cellDate < today;
-                                        const isDisabled = isWeekend || isPastDay;
-
-                                        const dateValue = [
-                                            year,
-                                            String(month + 1).padStart(2, "0"),
-                                            String(day).padStart(2, "0"),
-                                        ].join("-");
-
-                                        const isSelected = selectedDate === dateValue;
-
-                                        return (
-                                            <button
-                                                key={day}
-                                                type="button"
-                                                className={`calendar-day ${isDisabled
-                                                    ? "disabled"
-                                                    : isSelected
-                                                        ? "selected"
-                                                        : "available"
-                                                    }`}
-                                                onClick={() => {
-                                                    setSelectedDate(dateValue);
-                                                    setSelectedTime("");
-                                                    setMessage("");
-                                                }}
-                                                aria-pressed={isSelected}
-                                                disabled={isDisabled}
-                                                aria-label={`${day} ${monthTitle}`}
-                                            >
-                                                {day}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
+                            <BookingCalendar
+                                selectedDate={selectedDate}
+                                disabled={isSubmitting}
+                                onSelectDate={day => {
+                                    setSelectedDate(day);
+                                    setSelectedTime("");
+                                    setMessage("");
+                                }}
+                            />
                             {selectedDate && (
                                 <div className="time-wrapper" aria-busy={isLoadingTimes}>
                                     <p id="time-slots-heading">Ώρα ραντεβού</p>

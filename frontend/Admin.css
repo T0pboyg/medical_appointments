@@ -800,3 +800,6 @@
     outline: 3px solid #258bcb;
     outline-offset: 2px;
 }
+.admin-app .admin-reschedule .booking-calendar { width: 100%; box-sizing: border-box; }
+.admin-app .admin-reschedule .booking-calendar .calendar-day { width: 100%; min-width: 0; padding: 0; font-size: 14px; }
+.admin-app .admin-reschedule .booking-calendar .calendar-day.disabled { cursor: not-allowed; }

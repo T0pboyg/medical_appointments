@@ -29,3 +29,16 @@ TO appointments_app;
 GRANT USAGE
 ON SEQUENCE availability_blocks_id_seq
 TO appointments_app;
+
+GRANT SELECT (
+    id,
+    occurred_at,
+    actor_issuer,
+    actor_subject,
+    action,
+    appointment_id,
+    previous_starts_at,
+    new_starts_at
+)
+ON TABLE public.audit_events
+TO appointments_app;

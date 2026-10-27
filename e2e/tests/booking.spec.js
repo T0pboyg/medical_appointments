@@ -29,6 +29,32 @@ async function login(page) {
   await expect(page.getByRole("button", { name: "Αποσύνδεση", exact: true })).toBeEnabled();
 }
 
+test.describe('booking calendar outside clinic timezone', () => {
+  test.use({ timezoneId: 'Pacific/Honolulu' });
+
+  test('public booking uses Athens day and slot even when browser is on the previous day', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2030-01-06T22:30:00Z'));
+    let payload;
+    await page.route('**/api/availability?date=2030-01-07', route => route.fulfill({ json: ['10:30'] }));
+    await page.route('**/api/appointments', route => {
+      payload = route.request().postDataJSON();
+      return route.fulfill({ status: 201, json: { id: 9991, starts_at: payload.starts_at } });
+    });
+    await page.goto('/');
+    const calendar = page.getByRole('group', { name: 'Ημερομηνία ραντεβού', exact: true });
+    await expect(calendar.locator('[data-date="2030-01-07"]')).toBeEnabled();
+    await expect(calendar.locator('[data-date="2030-01-06"]')).toBeDisabled();
+    await calendar.locator('[data-date="2030-01-07"]').click();
+    await page.getByRole('group', { name: 'Ώρα ραντεβού', exact: true }).getByRole('button', { name: '10:30', exact: true }).click();
+    await page.getByLabel('Ονοματεπώνυμο', { exact: true }).fill('Synthetic Timezone');
+    await page.getByLabel('Τηλέφωνο', { exact: true }).fill('6900000000');
+    await page.getByLabel('ΑΜΚΑ', { exact: true }).fill('00000000000');
+    await page.getByRole('button', { name: 'Κλείσε Ραντεβού', exact: true }).click();
+    await expect(page.getByText('Το ραντεβού κλείστηκε επιτυχώς.', { exact: true })).toBeVisible();
+    expect(payload.starts_at).toBe('2030-01-07T08:30:00.000Z');
+  });
+});
+
 async function selectAdminRange(page, from, to = from) {
   await page.getByLabel('Από ημερομηνία', { exact: true }).fill(from);
   await page.getByLabel('Έως ημερομηνία', { exact: true }).fill(to);
@@ -292,4 +318,293 @@ test("admin calendar selects a day and filters the appointment list", async ({ p
   );
 
   expect(errors).toEqual([]);
+});
+
+const staffDetailsFixture = {
+  id: 42,
+  patient_name: "Synthetic Details Patient",
+  patient_phone: "+306900000000",
+  patient_AMKA: "00000000000",
+  starts_at: "2030-01-07T10:00:00+02:00",
+  no_show: false,
+  cancelled_at: null,
+};
+
+for (const location of ['list', 'assistant']) {
+  test(`reschedule calendar selects dates and clears old slots in ${location}`, async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2030-01-07T07:00:00Z'));
+    await page.route('**/api/appointments/page?*', route => route.fulfill({ json: {
+      items: [staffDetailsFixture], page: 1, page_size: 25, has_more: false,
+    } }));
+    await page.route('**/api/availability?*', route => {
+      const day = new URL(route.request().url()).searchParams.get('date');
+      return route.fulfill({ json: day === '2030-01-08' ? ['11:00'] : ['10:30'] });
+    });
+    let scope;
+    if (location === 'assistant') {
+      await page.route('**/api/appointments/42', route => route.fulfill({ json: staffDetailsFixture }));
+      const result = await openAssistantTestResult(page);
+      await result.getByRole('button', { name: 'Προβολή ραντεβού', exact: true }).click();
+      scope = page.getByRole('dialog', { name: 'Ραντεβού #42', exact: true });
+    } else {
+      await login(page);
+      scope = page.getByRole('article', { name: 'Ραντεβού 42', exact: true });
+    }
+    await scope.getByRole('button', { name: 'Μεταφορά ραντεβού', exact: true }).click();
+    const calendar = scope.getByRole('group', { name: 'Νέα ημερομηνία', exact: true });
+    await expect(calendar).toBeVisible();
+    await expect(scope.locator('input[type="date"]')).toHaveCount(0);
+    await expect(calendar.locator('[data-date="2030-01-04"]')).toBeDisabled();
+    await expect(calendar.locator('[data-date="2030-01-12"]')).toBeDisabled();
+    await expect(calendar.locator('[data-date="2030-01-07"]')).toBeEnabled();
+    await scope.getByLabel('Νέα ώρα', { exact: true }).selectOption('10:30');
+    await calendar.locator('[data-date="2030-01-07"]').click();
+    await expect(scope.getByLabel('Νέα ώρα', { exact: true })).toHaveValue('10:30');
+    await calendar.getByRole('button', { name: 'Επόμενος μήνας', exact: true }).click();
+    await expect(calendar.locator('[data-date="2030-02-01"]')).toBeVisible();
+    await calendar.getByRole('button', { name: 'Προηγούμενος μήνας', exact: true }).click();
+    await calendar.locator('[data-date="2030-01-08"]').click();
+    await expect(calendar.locator('[data-date="2030-01-08"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(scope.getByLabel('Νέα ώρα', { exact: true })).toHaveValue('');
+    await expect(scope.getByLabel('Νέα ώρα', { exact: true }).getByRole('option', { name: '11:00', exact: true })).toHaveCount(1);
+    await expect(scope.getByLabel('Νέα ώρα', { exact: true }).getByRole('option', { name: '10:30', exact: true })).toHaveCount(0);
+    await expect(scope.getByRole('button', { name: 'Επιβεβαίωση μεταφοράς', exact: true })).toBeDisabled();
+  });
+}
+
+async function openAssistantRescheduling(page) {
+  await page.route('**/api/appointments/42', route => route.fulfill({ json: staffDetailsFixture }));
+  await page.route('**/api/availability?date=2030-01-07', route => route.fulfill({ json: ['10:30'] }));
+  const result = await openAssistantTestResult(page);
+  await result.getByRole('button', { name: 'Προβολή ραντεβού', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ραντεβού #42', exact: true });
+  await dialog.getByRole('button', { name: 'Μεταφορά ραντεβού', exact: true }).click();
+  await dialog.getByLabel('Νέα ώρα', { exact: true }).selectOption('10:30');
+  return dialog;
+}
+
+test('staff assistant reschedules and clears stale results while refreshing admin', async ({ page }) => {
+  let listReads = 0;
+  let calendarReads = 0;
+  let payload;
+  let csrfHeader;
+  await page.route('**/api/appointments/page?*', route => {
+    listReads++;
+    return route.fulfill({ json: { items: [staffDetailsFixture], page: 1, page_size: 25, has_more: false } });
+  });
+  await page.route('**/api/appointments/calendar?*', route => {
+    calendarReads++;
+    return route.fulfill({ json: { days: [] } });
+  });
+  let finish;
+  const pending = new Promise(resolve => { finish = resolve; });
+  await page.route('**/api/appointments/42/reschedule', async route => {
+    payload = route.request().postDataJSON();
+    csrfHeader = route.request().headers()['x-csrf-token'];
+    await pending;
+    await route.fulfill({ json: { id: 42, starts_at: payload.starts_at } });
+  });
+  const dialog = await openAssistantRescheduling(page);
+  const beforeList = listReads;
+  const beforeCalendar = calendarReads;
+  // The main card and the modal must not share form control IDs.
+  expect(await page.locator('[id="staff-details-reschedule-42-time"]').count()).toBe(1);
+  page.once('dialog', confirmation => confirmation.accept());
+  await dialog.getByRole('button', { name: 'Επιβεβαίωση μεταφοράς', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Κλείσιμο πληροφοριών', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Κλείσιμο και καθαρισμός', exact: true })).toBeDisabled();
+  await expect(page.getByLabel('Η εντολή σου', { exact: true })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  expect(payload).toEqual({ starts_at: '2030-01-07T10:30:00+02:00', expected_starts_at: staffDetailsFixture.starts_at });
+  expect(csrfHeader).toBeTruthy();
+  finish();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('.staff-assistant-result')).toHaveCount(0);
+  await expect(page.locator('.staff-assistant-answer')).toContainText('Το ραντεβού #42 μεταφέρθηκε');
+  await expect.poll(() => listReads).toBeGreaterThan(beforeList);
+  await expect.poll(() => calendarReads).toBeGreaterThan(beforeCalendar);
+  await expect(page.getByLabel('Η εντολή σου', { exact: true })).toBeEnabled();
+});
+
+test('staff assistant reschedule conflict requires refresh without a success message', async ({ page }) => {
+  await page.route('**/api/appointments/42/reschedule', route => route.fulfill({ status: 409, json: { detail: 'Occupied' } }));
+  const dialog = await openAssistantRescheduling(page);
+  page.once('dialog', confirmation => confirmation.accept());
+  await dialog.getByRole('button', { name: 'Επιβεβαίωση μεταφοράς', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('η ώρα δεν είναι πλέον διαθέσιμη');
+  await expect(dialog.getByRole('button', { name: 'Επιβεβαίωση μεταφοράς', exact: true })).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Ανανέωση λίστας ραντεβού', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('.staff-assistant-result')).toHaveCount(0);
+  await expect(page.locator('.staff-assistant-answer')).toContainText('Η λίστα και το ημερολόγιο ανανεώνονται');
+});
+
+async function openAssistantTestResult(page) {
+  await page.route("**/api/staff-assistant/chat", route =>
+    route.fulfill({
+      json: {
+        answer: "Βρήκα ένα συνθετικό ραντεβού.",
+        appointments: [{
+          id: staffDetailsFixture.id,
+          patient_name: staffDetailsFixture.patient_name,
+          starts_at: staffDetailsFixture.starts_at,
+        }],
+      },
+    })
+  );
+
+  await login(page);
+
+  await page.getByRole("button", {
+    name: "Άνοιγμα Assistant",
+    exact: true,
+  }).click();
+
+  await page.getByLabel("Η εντολή σου", {
+    exact: true,
+  }).fill("δείξε το ραντεβού #42");
+
+  await page.getByRole("button", {
+    name: "Αποστολή",
+    exact: true,
+  }).click();
+
+  const result = page.locator(".staff-assistant-result").filter({
+    hasText: staffDetailsFixture.patient_name,
+  });
+
+  await expect(result).toBeVisible();
+  return result;
+}
+
+test("staff assistant loads private details only when opened and clears them on close", async ({ page }) => {
+  let requests = 0;
+
+  await page.route("**/api/appointments/42", route => {
+    requests++;
+    return route.fulfill({ json: staffDetailsFixture });
+  });
+
+  const result = await openAssistantTestResult(page);
+
+  expect(requests).toBe(0);
+  await expect(page.getByText(
+    staffDetailsFixture.patient_phone, { exact: true }
+  )).toHaveCount(0);
+
+  await result.getByRole("button", {
+    name: "Προβολή ραντεβού",
+    exact: true,
+  }).click();
+
+  const dialog = page.getByRole("dialog", {
+    name: "Ραντεβού #42",
+    exact: true,
+  });
+
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText(
+    staffDetailsFixture.patient_phone, { exact: true }
+  )).toBeVisible();
+  await expect(dialog.getByText(
+    staffDetailsFixture.patient_AMKA, { exact: true }
+  )).toBeVisible();
+  expect(requests).toBe(1);
+
+  await page.keyboard.press("Escape");
+
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText(
+    staffDetailsFixture.patient_phone, { exact: true }
+  )).toHaveCount(0);
+  await expect(page.getByText(
+    staffDetailsFixture.patient_AMKA, { exact: true }
+  )).toHaveCount(0);
+
+  await result.getByRole("button", {
+    name: "Προβολή ραντεβού",
+    exact: true,
+  }).click();
+
+  await expect(dialog.getByText(
+    staffDetailsFixture.patient_phone, { exact: true }
+  )).toBeVisible();
+  expect(requests).toBe(2);
+
+  await dialog.getByRole("button", {
+    name: "Κλείσιμο πληροφοριών",
+    exact: true,
+  }).click();
+
+  await expect(dialog).toHaveCount(0);
+});
+
+test("staff assistant details can retry after a network failure", async ({ page }) => {
+  let fail = true;
+
+  await page.route("**/api/appointments/42", route =>
+    fail
+      ? route.abort("failed")
+      : route.fulfill({ json: staffDetailsFixture })
+  );
+
+  const result = await openAssistantTestResult(page);
+
+  await result.getByRole("button", {
+    name: "Προβολή ραντεβού",
+    exact: true,
+  }).click();
+
+  const dialog = page.getByRole("dialog", {
+    name: "Ραντεβού #42",
+    exact: true,
+  });
+
+  await expect(dialog.getByRole("alert")).toHaveText(
+    "Δεν φορτώθηκαν οι πληροφορίες. Δοκίμασε ξανά."
+  );
+
+  await expect(dialog.getByText(
+    staffDetailsFixture.patient_phone, { exact: true }
+  )).toHaveCount(0);
+
+  fail = false;
+
+  await dialog.getByRole("button", {
+    name: "Επανάληψη πληροφοριών",
+    exact: true,
+  }).click();
+
+  await expect(dialog.getByText(
+    staffDetailsFixture.patient_phone, { exact: true }
+  )).toBeVisible();
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+});
+
+test("staff assistant details clear results when the server returns 401", async ({ page }) => {
+  await page.route("**/api/appointments/42", route =>
+    route.fulfill({
+      status: 401,
+      json: { detail: "Απαιτείται σύνδεση προσωπικού." },
+    })
+  );
+
+  const result = await openAssistantTestResult(page);
+
+  await result.getByRole("button", {
+    name: "Προβολή ραντεβού",
+    exact: true,
+  }).click();
+
+  await expect(page.getByRole("link", {
+    name: "Σύνδεση προσωπικού",
+    exact: true,
+  })).toBeVisible();
+
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".staff-assistant-result")).toHaveCount(0);
+  await expect(page.getByText(
+    staffDetailsFixture.patient_phone, { exact: true }
+  )).toHaveCount(0);
 });

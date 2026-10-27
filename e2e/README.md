@@ -17,6 +17,12 @@ image; subsequent runs reuse it. Local test artifacts are ignored by Git.
 
 Coverage:
 
+- Shared public/rescheduling calendar: month navigation, disabled past/weekend
+  days, changing day clears old slots, selecting the same day preserves them.
+  Both the admin list and staff-assistant modal use the shared calendar.
+- Public booking uses Athens dates/times even when the browser timezone is
+  Honolulu and its calendar date is still the previous day (synthetic API response).
+
 - Fill the real form and create an appointment through Vite -> FastAPI -> PostgreSQL.
 - Verify the booked slot disappears from public availability.
 - Load the appointment in the real Admin component and cancel through its confirmation dialog.
@@ -32,6 +38,13 @@ Coverage:
   phone/AMKA only when details are opened; closing details removes them from view.
   This navigation scenario uses synthetic intercepted responses; backend tests
   separately verify real database pagination and the staff-only detail endpoint.
+- Verify staff-assistant details load only on demand, are removed when closed,
+  can retry a failed request and clear assistant results after a 401 response.
+- Verify rescheduling from assistant details forwards CSRF and the original-time
+  snapshot, prevents closing during submission, clears stale results on success
+  and refreshes the list/calendar; a 409 requires refresh without reporting success.
+  These assistant scenarios intercept LLM/detail/rescheduling responses and do not
+  exercise Ollama or write real appointments; database tests cover the transaction.
 
 The test entrypoint `backend/tests/e2e_server.py` is mounted only into the
 isolated backend and refuses to start without the explicit test-mode marker

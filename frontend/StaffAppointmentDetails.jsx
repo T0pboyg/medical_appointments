@@ -1,14 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
+import RescheduleAppointment from "./RescheduleAppointment.jsx";
+import AppointmentHistory from "./AppointmentHistory.jsx";
 
 export default function StaffAppointmentDetails({
     appointmentId,
     onUnauthorized,
     onClose,
+    csrfToken,
+    onMoved,
+    onRefresh,
+    onMovingChange,
 }) {
     const dialog = useRef(null);
     const [details, setDetails] = useState(null);
     const [error, setError] = useState("");
     const [retry, setRetry] = useState(0);
+    const [moving, setMoving] = useState(false);
+    const movingRef = useRef(false);
 
     useEffect(() => {
         dialog.current?.showModal();
@@ -91,7 +99,7 @@ export default function StaffAppointmentDetails({
             aria-labelledby="staff-appointment-details-title"
             onCancel={event => {
                 event.preventDefault();
-                onClose();
+                if (!movingRef.current) onClose();
             }}
         >
             <div className="staff-appointment-dialog-heading">
@@ -102,6 +110,7 @@ export default function StaffAppointmentDetails({
                     type="button"
                     autoFocus
                     onClick={onClose}
+                    disabled={moving}
                 >
                     Κλείσιμο πληροφοριών
                 </button>
@@ -140,6 +149,39 @@ export default function StaffAppointmentDetails({
                     <dt>Κατάσταση</dt>
                     <dd>{status}</dd>
                 </dl>
+            )}
+            {details &&
+                !details.cancelled_at &&
+                new Date(details.starts_at).getTime() > Date.now() && (
+                    <RescheduleAppointment
+                        idPrefix="staff-details-reschedule"
+                        appointment={details}
+                        csrfToken={csrfToken}
+                        busy={moving}
+                        onBusyChange={id => {
+                            const active = id !== null;
+                            movingRef.current = active;
+                            setMoving(active);
+                            onMovingChange(active);
+                        }}
+                        onUnauthorized={onUnauthorized}
+                        onMoved={onMoved}
+                        onRefresh={onRefresh}
+                    />
+                )}
+
+            {moving && (
+                <p role="status">
+                    Η μεταφορά εκτελείται. Περίμενε το αποτέλεσμα
+                    πριν κλείσεις το παράθυρο.
+                </p>
+            )}
+            {details && !moving && (
+                <AppointmentHistory
+                    key={details.id}
+                    appointmentId={details.id}
+                    onUnauthorized={onUnauthorized}
+                />
             )}
         </dialog>
     );

@@ -513,9 +513,11 @@ def reschedule_appointment_in_db(
                     actor_subject,
                     action,
                     appointment_id,
-                    correlation_id
+                    correlation_id,
+                    previous_starts_at,
+                    new_starts_at
                 )
-                VALUES (%s, %s, %s, %s, %s);
+                VALUES (%s, %s, %s, %s, %s, %s, %s);
                 """,
                 (
                     actor_issuer,
@@ -523,6 +525,8 @@ def reschedule_appointment_in_db(
                     "appointment.rescheduled",
                     appointment_id,
                     correlation_id,
+                    expected_starts_at,
+                    updated["starts_at"],
                 ),
             )
 
@@ -792,3 +796,64 @@ def get_appointment_counts_for_month(*, year, month):
                 }
                 for row in cursor.fetchall()
             ]
+
+def get_appointment_history_from_db(
+    appointment_id,
+    *,
+    page=1,
+    page_size=25,
+):
+    if appointment_id < 1:
+        raise ValueError("Invalid appointment ID.")
+
+    if not 1 <= page <= 10000 or not 1 <= page_size <= 100:
+        raise ValueError("Invalid pagination.")
+
+    offset = (page - 1) * page_size
+
+    with psycopg.connect(
+        os.environ["DATABASE_URL"],
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id
+                FROM appointments
+                WHERE id = %s;
+                """,
+                (appointment_id,),
+            )
+
+            if cursor.fetchone() is None:
+                return None
+
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    occurred_at,
+                    actor_issuer,
+                    actor_subject,
+                    action,
+                    previous_starts_at,
+                    new_starts_at
+                FROM audit_events
+                WHERE appointment_id = %s
+                ORDER BY occurred_at DESC, id DESC
+                LIMIT %s OFFSET %s;
+                """,
+                (
+                    appointment_id,
+                    page_size + 1,
+                    offset,
+                ),
+            )
+            rows = cursor.fetchall()
+
+    return {
+        "events": rows[:page_size],
+        "page": page,
+        "page_size": page_size,
+        "has_more": len(rows) > page_size,
+    }

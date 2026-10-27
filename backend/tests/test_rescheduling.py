@@ -113,6 +113,20 @@ class ReschedulingTests(unittest.TestCase):
                         )
                     ],
                 )
+                recorded_times = connection.execute(
+                    """
+                    SELECT previous_starts_at, new_starts_at
+                    FROM audit_events
+                    WHERE appointment_id = %s
+                      AND action = 'appointment.rescheduled';
+                    """,
+                    (appointment_id,),
+                ).fetchall()
+
+                self.assertEqual(
+                    recorded_times,
+                    [(original_start, new_start)],
+                )
             finally:
                 connection.execute(
                     """
@@ -532,6 +546,7 @@ class ReschedulingTests(unittest.TestCase):
                         )
                     ],
                 )
+
             finally:
                 connection.execute(
                     "DELETE FROM audit_events WHERE appointment_id = %s;",

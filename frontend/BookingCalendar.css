@@ -1,0 +1,6 @@
+.booking-calendar { min-width: 0; }
+.booking-calendar .booking-calendar-title { text-transform: capitalize; font-weight: 600; text-align: center; }
+.booking-calendar .calendar-header button { min-width: 44px; min-height: 44px; flex-shrink: 0; }
+.booking-calendar .calendar-day { min-height: 44px; }
+.booking-calendar .calendar-day:focus-visible { outline: 3px solid #258bcb; outline-offset: 2px; }
+.booking-calendar .booking-calendar-selection { font-size: 14px; margin: 12px 0 0; }

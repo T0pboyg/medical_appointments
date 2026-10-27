@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { clinicSlotToIso, getClinicDate } from "./appointmentFilters.js";
+import BookingCalendar from "./BookingCalendar.jsx";
 
 export default function RescheduleAppointment({
     appointment,
@@ -9,6 +10,7 @@ export default function RescheduleAppointment({
     onUnauthorized,
     onMoved,
     onRefresh,
+    idPrefix = "reschedule",
 }) {
     const [open, setOpen] = useState(false);
     const [day, setDay] = useState(() =>
@@ -157,7 +159,7 @@ export default function RescheduleAppointment({
         }
     }
 
-    const prefix = `reschedule-${appointment.id}`;
+    const prefix = `${idPrefix}-${appointment.id}`;
 
     return (
         <div className="admin-reschedule">
@@ -181,18 +183,13 @@ export default function RescheduleAppointment({
                 <form id={`${prefix}-form`} onSubmit={submit}>
                     <p>Επίλεξε νέα ημερομηνία και ώρα Ελλάδας.</p>
 
-                    <label htmlFor={`${prefix}-date`}>
-                        Νέα ημερομηνία
-                    </label>
-                    <input
-                        id={`${prefix}-date`}
-                        type="date"
-                        required
-                        min={getClinicDate()}
-                        value={day}
+                    <BookingCalendar
+                        label="Νέα ημερομηνία"
+                        selectedDate={day}
                         disabled={busy || mustRefresh}
-                        onChange={event => {
-                            setDay(event.target.value);
+                        onSelectDate={date => {
+                            if (date === day) return;
+                            setDay(date);
                             setSlot("");
                             setSlots([]);
                             setError("");

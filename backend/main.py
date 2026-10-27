@@ -38,6 +38,8 @@ from database import (
 )
 from database import reschedule_appointment_in_db
 from database import get_appointment_counts_for_month
+from fastapi import Path
+from database import get_appointment_history_from_db
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
@@ -476,3 +478,31 @@ def update_appointment_attendance(
         )
 
     return updated
+
+
+@app.get(
+    "/appointments/{appointment_id}/history",
+    dependencies=[Depends(require_staff)],
+)
+def get_appointment_history(
+    response: Response,
+    appointment_id: Annotated[int, Path(ge=1)],
+    page: int = Query(default=1, ge=1, le=10000),
+    page_size: int = Query(default=25, ge=1, le=100),
+):
+    response.headers["Cache-Control"] = "no-store"
+
+    history = get_appointment_history_from_db(
+        appointment_id,
+        page=page,
+        page_size=page_size,
+    )
+
+    if history is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Το ραντεβού δεν βρέθηκε.",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    return history

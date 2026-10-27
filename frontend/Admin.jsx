@@ -5,6 +5,7 @@ import "./Admin.css";
 import { getClinicDate } from "./appointmentFilters.js";
 import RescheduleAppointment from "./RescheduleAppointment.jsx";
 import AdminCalendar from "./AdminCalendar.jsx";
+import AppointmentHistory from "./AppointmentHistory.jsx";
 
 function AppointmentDetails({ id, onUnauthorized }) {
     const [open, setOpen] = useState(false);
@@ -44,6 +45,13 @@ function AppointmentDetails({ id, onUnauthorized }) {
                 : details ? <dl><div><dt>Τηλέφωνο</dt><dd>{details.patient_phone || "—"}</dd></div>
                     <div><dt>ΑΜΚΑ</dt><dd>{details.patient_AMKA || "—"}</dd></div></dl>
                     : <p role="status">Φόρτωση λεπτομερειών…</p>}
+            {details && (
+                <AppointmentHistory
+                    key={id}
+                    appointmentId={id}
+                    onUnauthorized={onUnauthorized}
+                />
+            )}
         </div>}
     </div>;
 }
@@ -358,7 +366,8 @@ export default function Admin() {
 
             <main><div className="admin-page-heading"><p className="admin-eyebrow">ΟΡΓΑΝΩΣΗ ΙΑΤΡΕΙΟΥ</p><h1>Τα ραντεβού σας</h1><p className="admin-subtitle">Όλες οι επισκέψεις σε μία καθαρή, συγκεντρωμένη προβολή.</p></div>
                 {csrfToken && !needsLogin && <StaffAssistant csrfToken={csrfToken} onUnauthorized={handleUnauthorized}
-                    onCancelled={() => setReloadKey((value) => value + 1)} />}
+                    onCancelled={() => setReloadKey((value) => value + 1)}
+                    onRescheduled={() => setReloadKey((value) => value + 1)} />}
                 <section className="card">
                     <h2>Ραντεβού</h2><p className="admin-section-note">Ημερομηνίες και ώρες Ελλάδας</p>
                     {csrfToken && !needsLogin && (
