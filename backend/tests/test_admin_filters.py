@@ -77,6 +77,76 @@ class AdminFilterRouteTests(unittest.TestCase):
                 page.assert_not_called()
                 details.assert_not_called()
 
+    def test_page_accepts_inclusive_date_range(self):
+        payload = {
+            "items": [],
+            "page": 1,
+            "page_size": 25,
+            "has_more": False,
+        }
+
+        with patch(
+            "main.get_appointments_page_from_db",
+            return_value=payload,
+        ) as read:
+            response = self.client.get(
+                "/appointments/page",
+                params={
+                    "date_from": "2030-01-07",
+                    "date_to": "2030-01-11",
+                    "patient_AMKA": "00000000000",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers["cache-control"], "no-store"
+        )
+        read.assert_called_once_with(
+            appointment_date=None,
+            date_from=date(2030, 1, 7),
+            date_to=date(2030, 1, 11),
+            patient_amka="00000000000",
+            page=1,
+            page_size=25,
+        )
+
+    def test_invalid_date_ranges_never_reach_database(self):
+        invalid_ranges = [
+            # End precedes start.
+            {
+                "date_from": "2030-01-11",
+                "date_to": "2030-01-07",
+            },
+            # 32 calendar days, counting both endpoints.
+            {
+                "date_from": "2030-01-01",
+                "date_to": "2030-02-01",
+            },
+            # Both endpoints are required.
+            {"date_from": "2030-01-07"},
+            {"date_to": "2030-01-11"},
+            # Do not combine the old filter with a range.
+            {
+                "appointment_date": "2030-01-07",
+                "date_from": "2030-01-07",
+                "date_to": "2030-01-11",
+            },
+        ]
+
+        for parameters in invalid_ranges:
+            with self.subTest(parameters=parameters):
+                with patch(
+                    "main.get_appointments_page_from_db"
+                ) as read:
+                    response = self.client.get(
+                        "/appointments/page",
+                        params=parameters,
+                    )
+
+                self.assertEqual(response.status_code, 422)
+                read.assert_not_called()
+
 
 class AdminFilterDatabaseTests(unittest.TestCase):
     def test_pages_are_disjoint_and_details_are_separate(self):
@@ -128,3 +198,95 @@ class AdminFilterDatabaseTests(unittest.TestCase):
                     self.assertEqual([r['starts_at'] for r in rows], sorted(r['starts_at'] for r in rows))
                 finally:
                     connection.execute('DELETE FROM appointments WHERE id = ANY(%s)', (ids,))
+
+
+    def test_inclusive_date_range_with_pagination_across_dst(self):
+        test_url = make_conninfo(
+            os.environ["DATABASE_URL"],
+            dbname="appointments_migration_test",
+        )
+        clinic_timezone = ZoneInfo("Europe/Athens")
+
+        # Includes the switch from summer to winter time.
+        date_from = date(2026, 10, 24)
+        date_to = date(2026, 10, 26)
+
+        start = datetime(
+            2026, 10, 24, tzinfo=clinic_timezone
+        ).astimezone(timezone.utc)
+        end = datetime(
+            2026, 10, 27, tzinfo=clinic_timezone
+        ).astimezone(timezone.utc)
+
+        offset = timedelta(
+            microseconds=uuid4().int % 900000 + 1
+        )
+        amka = str(uuid4().int % 10**11).zfill(11)
+        appointment_ids = []
+
+        with psycopg.connect(
+            test_url, autocommit=True
+        ) as connection:
+            try:
+                timestamps = (
+                    start - offset,  # Outside: previous day.
+                    start + offset,  # Inside: first day.
+                    end - offset,    # Inside: final day.
+                    end + offset,    # Outside: following day.
+                )
+
+                for starts_at in timestamps:
+                    appointment_ids.append(
+                        connection.execute(
+                            """
+                            INSERT INTO appointments (
+                                patient_name, patient_phone,
+                                patient_amka, starts_at
+                            )
+                            VALUES (%s, %s, %s, %s)
+                            RETURNING id;
+                            """,
+                            (
+                                f"Synthetic Date Range {uuid4()}",
+                                "+306900000000",
+                                amka,
+                                starts_at,
+                            ),
+                        ).fetchone()[0]
+                    )
+
+                with patch.dict(
+                    os.environ, {"DATABASE_URL": test_url}
+                ):
+                    first = get_appointments_page_from_db(
+                        appointment_date=None,
+                        date_from=date_from,
+                        date_to=date_to,
+                        patient_amka=amka,
+                        page=1,
+                        page_size=1,
+                    )
+                    second = get_appointments_page_from_db(
+                        appointment_date=None,
+                        date_from=date_from,
+                        date_to=date_to,
+                        patient_amka=amka,
+                        page=2,
+                        page_size=1,
+                    )
+
+                self.assertEqual(
+                    [row["id"] for row in first["items"]],
+                    [appointment_ids[1]],
+                )
+                self.assertEqual(
+                    [row["id"] for row in second["items"]],
+                    [appointment_ids[2]],
+                )
+                self.assertTrue(first["has_more"])
+                self.assertFalse(second["has_more"])
+            finally:
+                connection.execute(
+                    "DELETE FROM appointments WHERE id = ANY(%s);",
+                    (appointment_ids,),
+                )

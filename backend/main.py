@@ -36,6 +36,7 @@ from database import (
     get_appointments_page_from_db,
     get_appointment_details_from_db,
 )
+from database import reschedule_appointment_in_db
 
 app = FastAPI()
 app.add_middleware(LoginSessionMiddleware)
@@ -111,6 +112,21 @@ class AppointmentAttendanceUpdate(BaseModel):
 
     no_show: StrictBool
 
+class AppointmentReschedule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    starts_at: datetime
+    expected_starts_at: datetime
+
+    @field_validator("starts_at", "expected_starts_at")
+    @classmethod
+    def require_timezone(cls, value):
+        if value.utcoffset() is None:
+            raise ValueError(
+                "Η ημερομηνία πρέπει να περιλαμβάνει ζώνη ώρας."
+            )
+        return value
+
 class AppointmentCreated(BaseModel):
     id: int
     starts_at: datetime
@@ -123,6 +139,8 @@ class AppointmentCreated(BaseModel):
 def get_appointments_page(
     response: Response,
     appointment_date: date | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     patient_AMKA: Annotated[
         str,
         StringConstraints(pattern=r"^[0-9]{11}$"),
@@ -132,6 +150,57 @@ def get_appointments_page(
 ):
     response.headers["Cache-Control"] = "no-store"
 
+    using_range = date_from is not None or date_to is not None
+
+    if using_range:
+        if (
+            appointment_date is not None
+            or date_from is None
+            or date_to is None
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Συμπλήρωσε και τις δύο ημερομηνίες "
+                    "χωρίς το φίλτρο μίας ημέρας."
+                ),
+                headers={"Cache-Control": "no-store"},
+            )
+
+        if date_to < date_from:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Η ημερομηνία λήξης δεν μπορεί "
+                    "να προηγείται της έναρξης."
+                ),
+                headers={"Cache-Control": "no-store"},
+            )
+
+        if (date_to - date_from).days > 30:
+            raise HTTPException(
+                status_code=422,
+                detail="Επίλεξε διάστημα έως 31 ημερών.",
+                headers={"Cache-Control": "no-store"},
+            )
+
+        if date_to == date.max:
+            raise HTTPException(
+                status_code=422,
+                detail="Η ημερομηνία είναι εκτός υποστηριζόμενου εύρους.",
+                headers={"Cache-Control": "no-store"},
+            )
+
+        return get_appointments_page_from_db(
+            appointment_date=None,
+            date_from=date_from,
+            date_to=date_to,
+            patient_amka=patient_AMKA,
+            page=page,
+            page_size=page_size,
+        )
+
+    # Preserve the existing single-day API.
     selected_date = (
         appointment_date
         if appointment_date is not None
@@ -142,6 +211,7 @@ def get_appointments_page(
         raise HTTPException(
             status_code=422,
             detail="Η ημερομηνία είναι εκτός υποστηριζόμενου εύρους.",
+            headers={"Cache-Control": "no-store"},
         )
 
     return get_appointments_page_from_db(
@@ -150,7 +220,6 @@ def get_appointments_page(
         page=page,
         page_size=page_size,
     )
-
 
 @app.get(
     "/appointments",
@@ -272,7 +341,62 @@ def create_appointment(
             detail="Το επιλεγμένο διάστημα δεν είναι διαθέσιμο.",
         ) from None
 
+@app.post("/appointments/{appointment_id}/reschedule")
+def reschedule_appointment(
+    appointment_id: int,
+    change: AppointmentReschedule,
+    session: dict = Depends(require_staff_change),
+):
+    if appointment_id < 1:
+        raise HTTPException(
+            status_code=422,
+            detail="Μη έγκυρος αριθμός ραντεβού.",
+            headers={"Cache-Control": "no-store"},
+        )
 
+    try:
+        updated = reschedule_appointment_in_db(
+            appointment_id,
+            change.starts_at,
+            session["issuer"],
+            session["subject"],
+            uuid4(),
+            expected_starts_at=change.expected_starts_at,
+        )
+    except (UniqueViolation, CheckViolation):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Η επιλεγμένη ώρα δεν είναι διαθέσιμη. "
+                "Ανανέωσε τη διαθεσιμότητα και επίλεξε άλλη ώρα."
+            ),
+            headers={"Cache-Control": "no-store"},
+        ) from None
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+            headers={"Cache-Control": "no-store"},
+        ) from None
+
+    if updated is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Το ραντεβού έχει αλλάξει ή δεν είναι πλέον "
+                "ενεργό μελλοντικό ραντεβού. "
+                "Ανανέωσε τη λίστα πριν συνεχίσεις."
+            ),
+            headers={"Cache-Control": "no-store"},
+        )
+
+    return JSONResponse(
+        content={
+            "id": updated["id"],
+            "starts_at": updated["starts_at"].isoformat(),
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 @app.post("/appointments/{appointment_id}/cancel")
 def cancel_appointment(

@@ -29,6 +29,11 @@ async function login(page) {
   await expect(page.getByRole("button", { name: "Αποσύνδεση", exact: true })).toBeEnabled();
 }
 
+async function selectAdminRange(page, from, to = from) {
+  await page.getByLabel('Από ημερομηνία', { exact: true }).fill(from);
+  await page.getByLabel('Έως ημερομηνία', { exact: true }).fill(to);
+}
+
 test("booking -> admin -> audited cancellation -> slot becomes free", async ({ page }) => {
   const name = "E2E Synthetic Cancellation";
   const { date, time } = await book(page, name);
@@ -41,11 +46,11 @@ test("booking -> admin -> audited cancellation -> slot becomes free", async ({ p
   expect(await booked.json()).not.toContain(time);
 
   await login(page);
-  const dateFilter = page.getByLabel('Ημερομηνία ραντεβού', { exact: true });
+  const dateFilter = page.getByLabel('Από ημερομηνία', { exact: true });
   const today = await dateFilter.inputValue();
   expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   await expect(page.getByText(name, { exact: true })).toHaveCount(0);
-  await dateFilter.fill(date);
+  await selectAdminRange(page, date);
   const records = await (await page.request.get(`/api/appointments?appointment_date=${date}`)).json();
   const saved = records.find(item => item.patient_name === name);
   expect(saved).toBeDefined();
@@ -70,6 +75,7 @@ test("booking -> admin -> audited cancellation -> slot becomes free", async ({ p
   await expect(dateFilter).toHaveValue(date);
   await page.getByRole('button', { name: 'Καθαρισμός φίλτρων', exact: true }).click();
   await expect(dateFilter).toHaveValue(today);
+  await expect(page.getByLabel('Έως ημερομηνία', { exact: true })).toHaveValue(today);
   await expect(page.getByText(name, { exact: true })).toHaveCount(0);
 });
 
@@ -78,7 +84,7 @@ test("expired session clears patient cards and requests login", async ({ page })
   await page.getByRole("button", { name: "Κλείσε Ραντεβού", exact: true }).click();
   await expect(page.getByText("Το ραντεβού κλείστηκε επιτυχώς.", { exact: true })).toBeVisible();
   await login(page);
-  await page.getByLabel('Ημερομηνία ραντεβού', { exact: true }).fill(date);
+  await selectAdminRange(page, date);
   const card = page.getByRole("article").filter({ hasText: "E2E Synthetic Expired Session" });
   await expect(card).toBeVisible();
   const csrf = await (await page.request.get("/api/auth/csrf")).json();
@@ -104,7 +110,7 @@ test("admin list can retry after a network error without losing the date", async
   let fail = true;
   await page.route('**/api/appointments/page?*', route => fail ? route.abort('failed') : route.continue());
   await login(page);
-  const filter = page.getByLabel('Ημερομηνία ραντεβού', { exact: true });
+  const filter = page.getByLabel('Από ημερομηνία', { exact: true });
   const selected = await filter.inputValue();
   await expect(page.getByText('Δεν ήταν δυνατή η φόρτωση των ραντεβού.', { exact: true })).toBeVisible();
   fail = false;
@@ -138,9 +144,50 @@ test("admin pages summaries and loads private details only on demand", async ({ 
   await page.getByRole('button', { name: 'Επόμενη σελίδα', exact: true }).click();
   await expect(page.getByText('Synthetic Page 2', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Επόμενη σελίδα', exact: true })).toBeDisabled();
-  await page.getByLabel('Ημερομηνία ραντεβού', { exact: true }).fill('2030-01-08');
+  await selectAdminRange(page, '2030-01-08');
   await expect(page.getByText('Synthetic Page 1', { exact: true })).toBeVisible();
   expect(pages).toContain(2);
   expect(pages.at(-1)).toBe(1);
   expect(detailRequests).toBe(1);
+});
+
+test("admin date range validates limits and preserves range across pages", async ({ page }) => {
+  const requests = [];
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/api/appointments/page?*', async route => {
+    const params = new URL(route.request().url()).searchParams;
+    requests.push(Object.fromEntries(params));
+    const number = Number(params.get('page'));
+    await route.fulfill({ json: {
+      items: [{ id: number, patient_name: `Range Synthetic ${number}`,
+        starts_at: '2030-01-07T10:00:00+02:00', no_show: false, cancelled_at: null }],
+      page: number, page_size: 25, has_more: number === 1,
+    } });
+  });
+  await login(page);
+  await selectAdminRange(page, '2030-01-01', '2030-01-31');
+  await expect(page.getByText('Range Synthetic 1', { exact: true })).toBeVisible();
+  await expect.poll(() => requests.at(-1)?.date_to).toBe('2030-01-31');
+  await page.getByLabel('Αναζήτηση με ΑΜΚΑ', { exact: true }).fill('00000000000');
+  await expect.poll(() => requests.at(-1)?.patient_AMKA).toBe('00000000000');
+  await page.getByRole('button', { name: 'Επόμενη σελίδα', exact: true }).click();
+  await expect(page.getByText('Range Synthetic 2', { exact: true })).toBeVisible();
+  expect(requests.at(-1)).toMatchObject({ date_from: '2030-01-01', date_to: '2030-01-31', page: '2', patient_AMKA: '00000000000' });
+  await page.getByLabel('Έως ημερομηνία', { exact: true }).fill('2030-01-30');
+  await expect.poll(() => requests.at(-1)?.date_to).toBe('2030-01-30');
+  expect(requests.at(-1).page).toBe('1');
+  const count = requests.length;
+  await page.getByLabel('Έως ημερομηνία', { exact: true }).fill('2030-02-01');
+  await expect(page.getByText('Επίλεξε διάστημα έως 31 ημερών.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('article')).toHaveCount(0);
+  await page.waitForTimeout(400);
+  expect(requests).toHaveLength(count);
+  await selectAdminRange(page, '2030-01-10', '2030-01-09');
+  await expect(page.getByText('Το «Έως» δεν μπορεί να προηγείται του «Από».', { exact: true })).toBeVisible();
+  await page.getByLabel('Από ημερομηνία', { exact: true }).fill('');
+  await expect(page.getByText('Συμπλήρωσε και τις δύο ημερομηνίες.', { exact: true })).toBeVisible();
+  await page.waitForTimeout(400);
+  expect(requests).toHaveLength(count);
+  expect(errors).toEqual([]);
 });

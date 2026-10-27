@@ -3,6 +3,7 @@ import AvailabilityBlocks from "./AvailabilityBlocks.jsx";
 import StaffAssistant from "./StaffAssistant.jsx";
 import "./Admin.css";
 import { getClinicDate } from "./appointmentFilters.js";
+import RescheduleAppointment from "./RescheduleAppointment.jsx";
 
 function AppointmentDetails({ id, onUnauthorized }) {
     const [open, setOpen] = useState(false);
@@ -50,7 +51,29 @@ export default function Admin() {
     const [appointments, setAppointments] = useState([]);
     const [loadError, setLoadError] = useState("");
     const [searchAmka, setSearchAmka] = useState("");
-    const [searchDate, setSearchDate] = useState(() => getClinicDate());
+    const [dateFrom, setDateFrom] = useState(() => getClinicDate());
+    const [dateTo, setDateTo] = useState(() => getClinicDate());
+
+    const rangeDays = dateFrom && dateTo
+        ? (
+            Date.parse(`${dateTo}T00:00:00Z`) -
+            Date.parse(`${dateFrom}T00:00:00Z`)
+        ) / 86400000 + 1
+        : NaN;
+
+    const rangeError = !dateFrom || !dateTo
+        ? "Συμπλήρωσε και τις δύο ημερομηνίες."
+        : !Number.isFinite(rangeDays)
+            ? "Συμπλήρωσε έγκυρες ημερομηνίες."
+            : rangeDays < 1
+                ? "Το «Έως» δεν μπορεί να προηγείται του «Από»."
+                : rangeDays > 31
+                    ? "Επίλεξε διάστημα έως 31 ημερών."
+                    : "";
+
+    const validFilters =
+        !rangeError &&
+        (!searchAmka || /^[0-9]{11}$/.test(searchAmka));
     const [isLoading, setIsLoading] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     const [page, setPage] = useState(1);
@@ -58,6 +81,7 @@ export default function Admin() {
     const [updatingId, setUpdatingId] = useState(null);
     const [csrfToken, setCsrfToken] = useState("");
     const [needsLogin, setNeedsLogin] = useState(false);
+    const [notice, setNotice] = useState("");
 
     const handleUnauthorized = useCallback((response) => {
         if (response.status !== 401) {
@@ -67,10 +91,12 @@ export default function Admin() {
         setAppointments([]);
         setHasMore(false);
         setSearchAmka("");
-        setSearchDate("");
+        setDateFrom("");
+        setDateTo("");
         setCsrfToken("");
         setNeedsLogin(true);
         setLoadError("Η σύνδεση δεν είναι πλέον ενεργή. Συνδέσου ξανά.");
+        setNotice("");
 
         return true;
     }, []);
@@ -86,7 +112,7 @@ export default function Admin() {
         setHasMore(false);
         setLoadError("");
 
-        if (!searchDate || (searchAmka && !/^[0-9]{11}$/.test(searchAmka))) {
+        if (!validFilters) {
             setIsLoading(false);
             return () => controller.abort();
         }
@@ -113,7 +139,8 @@ export default function Admin() {
                 setCsrfToken(csrfData.csrf_token);
 
                 const parameters = new URLSearchParams({
-                    appointment_date: searchDate,
+                    date_from: dateFrom,
+                    date_to: dateTo,
                     page: String(page),
                     page_size: "25",
                 });
@@ -162,7 +189,9 @@ export default function Admin() {
         };
     }, [
         handleUnauthorized,
-        searchDate,
+        dateFrom,
+        dateTo,
+        validFilters,
         searchAmka,
         needsLogin,
         reloadKey,
@@ -344,20 +373,55 @@ export default function Admin() {
                                 maxLength={11}
                                 placeholder="Πληκτρολόγησε τα 11 ψηφία του ΑΜΚΑ"
                                 value={searchAmka}
-                                onChange={(event) =>
-                                    { setSearchAmka(event.target.value); setPage(1); }
+                                onChange={(event) => { setSearchAmka(event.target.value); setPage(1); }
                                 }
                             />
                         </div>
                         <div className="form-group">
-                            <label htmlFor="admin-search-date">Ημερομηνία ραντεβού</label>
-                            <input id="admin-search-date" type="date" value={searchDate}
-                                onChange={(event) => { setSearchDate(event.target.value); setPage(1); }} />
+                            <label htmlFor="admin-date-from">Από ημερομηνία</label>
+                            <input
+                                id="admin-date-from"
+                                type="date"
+                                value={dateFrom}
+                                onChange={event => {
+                                    setDateFrom(event.target.value);
+                                    setPage(1);
+                                    setNotice("");
+                                }}
+                            />
                         </div>
-                        {(searchAmka || searchDate) && <button className="admin-clear-filters" type="button" onClick={() => { setSearchAmka(""); setSearchDate(getClinicDate()); setPage(1); }}>Καθαρισμός φίλτρων</button>}
-                    </div>
-                    <p className="admin-filter-hint">Προεπιλογή: σήμερα, σε ώρα Ελλάδας. Επίλεξε ημερομηνία και προαιρετικά πλήρες ΑΜΚΑ 11 ψηφίων.</p>
 
+                        <div className="form-group">
+                            <label htmlFor="admin-date-to">Έως ημερομηνία</label>
+                            <input
+                                id="admin-date-to"
+                                type="date"
+                                value={dateTo}
+                                onChange={event => {
+                                    setDateTo(event.target.value);
+                                    setPage(1);
+                                    setNotice("");
+                                }}
+                            />
+                        </div>
+
+                        <button
+                            className="admin-clear-filters"
+                            type="button"
+                            onClick={() => {
+                                const today = getClinicDate();
+                                setSearchAmka("");
+                                setDateFrom(today);
+                                setDateTo(today);
+                                setPage(1);
+                                setNotice("");
+                            }}
+                        >
+                            Καθαρισμός φίλτρων
+                        </button>
+                    </div>
+                    <p className="admin-filter-hint">Προεπιλογή: σήμερα, σε ώρα Ελλάδας. Επίλεξε διάστημα έως 31 ημερών και προαιρετικά πλήρες ΑΜΚΑ 11 ψηφίων.</p>
+                    {notice && <p role="status">{notice}</p>}
                     {loadError && <p role="alert">{loadError}</p>}
                     {loadError && !needsLogin && (
                         <button type="button" disabled={isLoading}
@@ -434,14 +498,37 @@ export default function Admin() {
 
                                 </div>
                                 <AppointmentDetails id={appointment.id} onUnauthorized={handleUnauthorized} />
+                                {!appointment.cancelled_at &&
+                                    new Date(appointment.starts_at).getTime() > Date.now() && (
+                                        <RescheduleAppointment
+                                            appointment={appointment}
+                                            csrfToken={csrfToken}
+                                            busy={updatingId !== null}
+                                            onBusyChange={setUpdatingId}
+                                            onUnauthorized={handleUnauthorized}
+                                            onMoved={(id, day, slot) => {
+                                                setNotice(
+                                                    `Το ραντεβού #${id} μεταφέρθηκε στις ${day}, ` +
+                                                    `${slot} ώρα Ελλάδας. Αν άλλαξε ημερομηνία, ` +
+                                                    "επίλεξε τη νέα ημερομηνία στα φίλτρα."
+                                                );
+                                                setPage(1);
+                                                setReloadKey(value => value + 1);
+                                            }}
+                                            onRefresh={() => {
+                                                setNotice("");
+                                                setReloadKey(value => value + 1);
+                                            }}
+                                        />
+                                    )}
                             </article>
                         ))}
                         {!needsLogin && isLoading && (
                             <p role="status">Φόρτωση ραντεβού…</p>
                         )}
 
-                        {!needsLogin && !searchDate && (
-                            <p role="status">Επίλεξε ημερομηνία για αναζήτηση.</p>
+                        {!needsLogin && rangeError && (
+                            <p role="status">{rangeError}</p>
                         )}
 
                         {!needsLogin && searchAmka && !/^[0-9]{11}$/.test(searchAmka) && (
@@ -449,14 +536,13 @@ export default function Admin() {
                         )}
 
                         {csrfToken && !needsLogin && !isLoading && !loadError &&
-                            searchDate && (!searchAmka || /^[0-9]{11}$/.test(searchAmka)) &&
-                            appointments.length === 0 && (
+                            validFilters && appointments.length === 0 && (
                                 <p className="admin-empty" role="status">
                                     Δεν βρέθηκαν ραντεβού με τα επιλεγμένα φίλτρα.
                                 </p>
                             )}
                     </div>
-                    {csrfToken && !needsLogin && searchDate && (!searchAmka || /^[0-9]{11}$/.test(searchAmka)) && (
+                    {csrfToken && !needsLogin && validFilters && (
                         <nav className="admin-pagination" aria-label="Σελίδες ραντεβού">
                             <button type="button" disabled={isLoading || page === 1}
                                 onClick={() => setPage(value => value - 1)}>Προηγούμενη σελίδα</button>

@@ -124,20 +124,57 @@ def get_appointments_from_db(
 
 def get_appointments_page_from_db(
     *,
-    appointment_date,
+    appointment_date=None,
+    date_from=None,
+    date_to=None,
     patient_amka=None,
     page=1,
     page_size=25,
 ):
+    using_range = date_from is not None or date_to is not None
+
+    if using_range:
+        if (
+            appointment_date is not None
+            or date_from is None
+            or date_to is None
+        ):
+            raise ValueError(
+                "Provide both range endpoints without appointment_date."
+            )
+
+        first_day = date_from
+        last_day = date_to
+    else:
+        if appointment_date is None:
+            raise ValueError("An appointment date is required.")
+
+        first_day = appointment_date
+        last_day = appointment_date
+
+    if last_day < first_day:
+        raise ValueError("The range end precedes its start.")
+
+    if (last_day - first_day).days > 30:
+        raise ValueError("The range cannot exceed 31 calendar days.")
+
+    if page < 1 or not 1 <= page_size <= 100:
+        raise ValueError("Invalid pagination.")
+
+    try:
+        following_day = last_day + timedelta(days=1)
+    except OverflowError:
+        raise ValueError("Unsupported end date.") from None
+
     clinic_timezone = ZoneInfo("Europe/Athens")
 
     start = datetime.combine(
-        appointment_date,
+        first_day,
         time.min,
         tzinfo=clinic_timezone,
     )
     end = datetime.combine(
-        appointment_date + timedelta(days=1),
+        following_day,
         time.min,
         tzinfo=clinic_timezone,
     )
@@ -180,7 +217,6 @@ def get_appointments_page_from_db(
         "page_size": page_size,
         "has_more": len(rows) > page_size,
     }
-
 
 def get_appointment_details_from_db(appointment_id):
     with psycopg.connect(
@@ -378,6 +414,119 @@ def cancel_appointment_in_db(
             )
 
     return cancelled
+
+
+def reschedule_appointment_in_db(
+    appointment_id,
+    new_starts_at,
+    actor_issuer,
+    actor_subject,
+    correlation_id,
+    *,
+    expected_starts_at,
+):
+    clinic_timezone = ZoneInfo("Europe/Athens")
+
+    if (
+        new_starts_at.utcoffset() is None
+        or expected_starts_at.utcoffset() is None
+    ):
+        raise ValueError("Οι ημερομηνίες χρειάζονται ζώνη ώρας.")
+
+    local_start = new_starts_at.astimezone(clinic_timezone)
+
+    if (
+        local_start.weekday() >= 5
+        or not 9 <= local_start.hour < 17
+        or local_start.minute not in (0, 30)
+        or local_start.second != 0
+        or local_start.microsecond != 0
+    ):
+        raise ValueError("Η νέα ώρα είναι εκτός διαθέσιμου ωραρίου.")
+
+    if new_starts_at == expected_starts_at:
+        raise ValueError("Επίλεξε διαφορετική ώρα.")
+
+    with psycopg.connect(
+        os.environ["DATABASE_URL"],
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            # Same lock as booking and availability-block creation.
+            cursor.execute(
+                "SELECT pg_advisory_xact_lock(742019002);"
+            )
+
+            cursor.execute(
+                """
+                SELECT id
+                FROM appointments
+                WHERE id = %s
+                  AND cancelled_at IS NULL
+                  AND starts_at > clock_timestamp()
+                  AND starts_at = %s
+                FOR UPDATE;
+                """,
+                (appointment_id, expected_starts_at),
+            )
+
+            if cursor.fetchone() is None:
+                return None
+
+            # Check after acquiring locks, in case we waited.
+            if local_start <= datetime.now(clinic_timezone):
+                raise ValueError("Η νέα ώρα πρέπει να είναι μελλοντική.")
+
+            cursor.execute(
+                """
+                SELECT id
+                FROM availability_blocks
+                WHERE released_at IS NULL
+                  AND starts_at < %s + INTERVAL '30 minutes'
+                  AND ends_at > %s
+                LIMIT 1;
+                """,
+                (new_starts_at, new_starts_at),
+            )
+
+            if cursor.fetchone() is not None:
+                raise psycopg.errors.CheckViolation(
+                    "Rescheduling overlaps an availability block."
+                )
+
+            # The active-slot unique index rejects an occupied time.
+            cursor.execute(
+                """
+                UPDATE appointments
+                SET starts_at = %s
+                WHERE id = %s
+                RETURNING id, starts_at;
+                """,
+                (new_starts_at, appointment_id),
+            )
+            updated = cursor.fetchone()
+
+            cursor.execute(
+                """
+                INSERT INTO audit_events (
+                    actor_issuer,
+                    actor_subject,
+                    action,
+                    appointment_id,
+                    correlation_id
+                )
+                VALUES (%s, %s, %s, %s, %s);
+                """,
+                (
+                    actor_issuer,
+                    actor_subject,
+                    "appointment.rescheduled",
+                    appointment_id,
+                    correlation_id,
+                ),
+            )
+
+    return updated
 
 
 def find_staff_appointments(*, day=None, appointment_id=None, future_only=False):
