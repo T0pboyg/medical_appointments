@@ -7,6 +7,7 @@ import RescheduleAppointment from "./RescheduleAppointment.jsx";
 import AdminCalendar from "./AdminCalendar.jsx";
 import AppointmentHistory from "./AppointmentHistory.jsx";
 import AdminSummary from "./AdminSummary.jsx";
+import CreateAppointment from "./CreateAppointment.jsx";
 
 function AppointmentDetails({ id, onUnauthorized }) {
     const [open, setOpen] = useState(false);
@@ -92,6 +93,7 @@ export default function Admin() {
     const [csrfToken, setCsrfToken] = useState("");
     const [needsLogin, setNeedsLogin] = useState(false);
     const [notice, setNotice] = useState("");
+    const [creatingAppointment, setCreatingAppointment] = useState(false);
 
     const handleUnauthorized = useCallback((response) => {
         if (response.status !== 401) {
@@ -105,6 +107,7 @@ export default function Admin() {
         setDateTo("");
         setCsrfToken("");
         setNeedsLogin(true);
+        setCreatingAppointment(false);
         setLoadError("Η σύνδεση δεν είναι πλέον ενεργή. Συνδέσου ξανά.");
         setNotice("");
 
@@ -376,7 +379,7 @@ export default function Admin() {
                     />
                 )}
                 <section className="card">
-                    <h2>Ραντεβού</h2><p className="admin-section-note">Ημερομηνίες και ώρες Ελλάδας</p>
+                    <div className="admin-appointments-toolbar"><div><h2>Ραντεβού</h2><p className="admin-section-note">Ημερομηνίες και ώρες Ελλάδας</p></div><button type="button" disabled={!csrfToken || needsLogin || updatingId !== null} onClick={() => setCreatingAppointment(true)}>+ Νέο ραντεβού</button></div>
                     {csrfToken && !needsLogin && (
                         <AdminCalendar
                             selectedDate={dateFrom === dateTo ? dateFrom : ""}
@@ -586,6 +589,14 @@ export default function Admin() {
                     <details className="admin-blocks-panel"><summary><span><strong>Μπλοκάρισμα ωρών</strong><span className="admin-blocks-hint">Διαχείριση άδειας ή μη διαθέσιμων διαστημάτων</span></span><span className="admin-expand-label">Άνοιγμα / κλείσιμο</span></summary><AvailabilityBlocks csrfToken={csrfToken} onUnauthorized={handleUnauthorized} /></details>
                 )}
             </main>
+            {creatingAppointment && csrfToken && !needsLogin && <CreateAppointment
+                csrfToken={csrfToken} onUnauthorized={handleUnauthorized}
+                onClose={() => setCreatingAppointment(false)}
+                onRefresh={day => {setDateFrom(day);setDateTo(day);setSearchAmka("");setPage(1);setReloadKey(value => value + 1);}}
+                onCreated={(created, day) => {
+                    setCreatingAppointment(false);setDateFrom(day);setDateTo(day);setSearchAmka("");setPage(1);
+                    setReloadKey(value => value + 1);setNotice(`Το ραντεβού #${created.id} καταχωρίστηκε επιτυχώς.`);
+                }} />}
         </div>
     );
 }

@@ -318,6 +318,19 @@ def create_appointment(
     appointment: AppointmentCreate,
     response: Response,
 ):
+    return save_appointment(appointment, response)
+
+
+@app.post("/staff/appointments", status_code=201, response_model=AppointmentCreated)
+def create_staff_appointment(
+    appointment: AppointmentCreate,
+    response: Response,
+    session: dict = Depends(require_staff_change),
+):
+    return save_appointment(appointment, response, actor=session)
+
+
+def save_appointment(appointment, response, *, actor=None):
     response.headers["Cache-Control"] = "no-store"
     if appointment.starts_at.utcoffset() is None:
         raise HTTPException(
@@ -354,11 +367,17 @@ def create_appointment(
             detail="Δεν επιτρέπονται ραντεβού το Σαββατοκύριακο."
         )
     try:
+        audit = {} if actor is None else {
+            "actor_issuer": actor["issuer"],
+            "actor_subject": actor["subject"],
+            "correlation_id": uuid4(),
+        }
         return create_appointment_in_db(
             appointment.patient_name,
             appointment.patient_phone,
             appointment.patient_AMKA,
             appointment.starts_at,
+            **audit,
         )
     except UniqueViolation:
         raise HTTPException(

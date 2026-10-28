@@ -62,3 +62,5 @@ dependencies remain unchanged.
 
 GitHub runs the same command through `browser-tests.yml`. Failure screenshots
 and traces contain only synthetic data and are retained for seven days.
+
+Staff booking coverage (`staff-create.spec.js`): staff-only modal creation, refresh of the selected day, public slot removal and one attributed appointment.created audit event in the isolated database.

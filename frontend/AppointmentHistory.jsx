@@ -68,6 +68,7 @@ export default function AppointmentHistory({
 
     const actionLabel = action => ({
         "appointment.rescheduled": "Μεταφορά ραντεβού",
+        "appointment.created": "Καταχώριση από το προσωπικό",
         "appointment.cancelled": "Ακύρωση ραντεβού",
     }[action] || action);
 

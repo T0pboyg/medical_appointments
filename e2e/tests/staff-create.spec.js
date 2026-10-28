@@ -1,0 +1,36 @@
+import {test,expect} from '@playwright/test';
+
+test('staff creates a phone booking and its audit event', async ({page}) => {
+    const login = await page.request.post('/api/__e2e/login', {headers:{Origin:'http://localhost:5173'}});
+    expect(login.ok()).toBeTruthy();
+    await page.goto('/admin');
+    const launch=page.getByRole('button',{name:'+ Νέο ραντεβού',exact:true});
+    await expect(launch).toBeEnabled();
+    await launch.click();
+    const dialog=page.getByRole('dialog',{name:'Νέο ραντεβού',exact:true});
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel('Ονοματεπώνυμο',{exact:true}).fill('E2E Synthetic Staff Booking');
+    await dialog.getByLabel('Τηλέφωνο',{exact:true}).fill('6900000000');
+    await dialog.getByLabel('ΑΜΚΑ',{exact:true}).fill('00000000000');
+    await dialog.getByRole('button',{name:'Επόμενος μήνας',exact:true}).click();
+    const dayButton=dialog.locator('button.calendar-day:not(:disabled)').first();
+    const date=await dayButton.getAttribute('data-date');
+    const slotsLoaded=page.waitForResponse(response=>response.url().includes(`/api/availability?date=${date}`));
+    await dayButton.click();
+    const times=await (await slotsLoaded).json();
+    expect(times.length).toBeGreaterThan(0);
+    const slot=times[times.length-1];
+    await dialog.getByLabel('Διαθέσιμη ώρα',{exact:true}).selectOption(slot);
+    const saved=page.waitForResponse(response=>response.url().endsWith('/api/staff/appointments')&&response.request().method()==='POST');
+    await dialog.getByRole('button',{name:'Καταχώριση ραντεβού',exact:true}).click();
+    const response=await saved;
+    expect(response.status()).toBe(201);
+    const created=await response.json();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole('article',{name:`Ραντεβού ${created.id}`,exact:true})).toBeVisible();
+    const remaining=await (await page.request.get(`/api/availability?date=${date}`)).json();
+    expect(remaining).not.toContain(slot);
+    const history=await (await page.request.get(`/api/appointments/${created.id}/history`)).json();
+    expect(history.events.filter(event=>event.action==='appointment.created')).toHaveLength(1);
+    expect(history.events.find(event=>event.action==='appointment.created').actor_subject).toBe('e2e-staff');
+});

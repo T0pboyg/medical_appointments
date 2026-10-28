@@ -14,7 +14,8 @@ def check_connection():
             return cursor.fetchone()[0]
 
 def create_appointment_in_db(
-    patient_name, patient_phone, patient_amka, starts_at
+    patient_name, patient_phone, patient_amka, starts_at,
+    *, actor_issuer=None, actor_subject=None, correlation_id=None,
 ):
     database_url = os.environ["DATABASE_URL"]
 
@@ -63,7 +64,20 @@ def create_appointment_in_db(
                 ),
             )
 
-            return cursor.fetchone()
+            created = cursor.fetchone()
+            if actor_issuer is not None:
+                if not actor_subject or correlation_id is None:
+                    raise ValueError("Staff audit identity is incomplete.")
+                cursor.execute(
+                    """
+                    INSERT INTO audit_events (
+                        actor_issuer, actor_subject, action,
+                        appointment_id, correlation_id
+                    ) VALUES (%s, %s, 'appointment.created', %s, %s);
+                    """,
+                    (actor_issuer, actor_subject, created["id"], correlation_id),
+                )
+            return created
 
 def get_appointments_from_db(
     appointment_date=None,

@@ -873,3 +873,13 @@
         grid-template-columns: minmax(0, 1fr);
     }
 }
+.admin-app .admin-appointments-toolbar {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:18px;}
+.admin-app .admin-create-dialog {width:min(680px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:24px;border:1px solid #d3e1eb;border-radius:18px;color:var(--admin-ink);background:#fff;overflow-y:auto;box-shadow:0 20px 70px #16364a30;}
+.admin-create-dialog::backdrop {background:#142c4266;}
+.admin-app .admin-create-heading {display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
+.admin-app .admin-create-heading p {font-size:14px;color:var(--admin-muted);margin:4px 0 12px;}
+.admin-app .admin-create-dialog form {display:block;}
+.admin-app .admin-create-dialog fieldset {padding:16px;}
+.admin-app .admin-create-dialog select {font:inherit;min-height:48px;}
+.admin-app .admin-create-actions {display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;}
+@media(max-width:600px){.admin-app .admin-create-dialog{padding:16px;}.admin-app .admin-create-heading{flex-wrap:wrap;}.admin-app .admin-create-dialog fieldset{padding:12px;}.admin-app .admin-create-actions button{width:100%;}}
